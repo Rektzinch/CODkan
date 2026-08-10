@@ -363,8 +363,8 @@ on conflict(id) do update set public=excluded.public,file_size_limit=excluded.fi
 
 create policy listing_media_public_read on storage.objects for select using (bucket_id='listing-media');
 create policy listing_media_owner_insert on storage.objects for insert to authenticated with check (bucket_id='listing-media' and (storage.foldername(name))[1]=(select auth.uid())::text);
-create policy listing_media_owner_update on storage.objects for update to authenticated using (bucket_id='listing-media' and owner_id=(select auth.uid())) with check (bucket_id='listing-media' and owner_id=(select auth.uid()));
-create policy listing_media_owner_delete on storage.objects for delete to authenticated using (bucket_id='listing-media' and owner_id=(select auth.uid()));
+create policy listing_media_owner_update on storage.objects for update to authenticated using (bucket_id='listing-media' and owner_id=(select auth.uid())::text) with check (bucket_id='listing-media' and owner_id=(select auth.uid())::text);
+create policy listing_media_owner_delete on storage.objects for delete to authenticated using (bucket_id='listing-media' and owner_id=(select auth.uid())::text);
 
 alter publication supabase_realtime add table public.offers;
 alter publication supabase_realtime add table public.deals;

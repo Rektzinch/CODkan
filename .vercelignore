@@ -1,0 +1,5 @@
+.next
+.sites-runtime
+.wrangler
+node_modules
+npm-debug.log*
