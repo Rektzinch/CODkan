@@ -33,6 +33,11 @@ try {
   }
   const [result] = await sql`select count(*)::int as table_count from information_schema.tables where table_schema='public' and table_name in ('profiles','listings','offers','deals')`;
   if (result.table_count !== 4) throw new Error("Core schema verification failed");
+  await sql.begin(async (tx) => {
+    await tx`select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000001', true)`;
+    await tx.unsafe("set local role authenticated");
+    await tx`select id from public.listings limit 1`;
+  });
   console.log(applied === 0 ? "Supabase schema already current." : `${applied} Supabase migration(s) applied and verified.`);
 } finally {
   await sql.end();
