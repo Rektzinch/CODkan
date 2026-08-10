@@ -28,7 +28,8 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
     });
     const responseHeaders = new Headers({ "content-type": response.headers.get("content-type") || "application/json" });
     return new Response(response.body, { status: response.status, headers: responseHeaders });
-  } catch {
+  } catch (error) {
+    console.error("Auth proxy upstream request failed", error);
     return Response.json({ message: "Layanan autentikasi sedang sulit dijangkau. Coba lagi." }, { status: 502 });
   }
 }
