@@ -5,7 +5,7 @@ import "./globals.css";
 const geist = Geist({ variable: "--font-geist", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Spec Build",
+  title: "CODkan — Ketemu. Tawar. Deal.",
   description: "CODkan — marketplace lokal untuk ketemu, tawar, dan deal secara COD.",
   manifest: "/manifest.webmanifest",
   other: { "codex-preview": "development" },
