@@ -32,6 +32,7 @@ yarn-error.log*
 
 # vercel
 .vercel
+supabase/.temp/
 .agents/
 skills-lock.json
 
