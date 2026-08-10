@@ -1,0 +1,13 @@
+{
+  "name": "CODkan — Ketemu. Tawar. Deal.",
+  "short_name": "CODkan",
+  "description": "Marketplace lokal untuk menemukan barang, menawar, dan COD dengan aman.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f0f3f0",
+  "theme_color": "#176b45",
+  "lang": "id",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

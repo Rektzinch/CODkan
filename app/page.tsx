@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type Listing = {
   id: number;
@@ -37,6 +37,13 @@ function Icon({ name, size = 20 }: { name: string; size?: number }) {
     user: <><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></>,
     chevron: <path d="m9 18 6-6-6-6"/>,
     tune: <><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></>,
+    close: <><path d="m6 6 12 12M18 6 6 18"/></>,
+    chat: <><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z"/></>,
+    shield: <><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></>,
+    clock: <><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></>,
+    calendar: <><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></>,
+    phone: <path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.4 19.4 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 2 .7 2.9a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.2-1.2a2 2 0 0 1 2.1-.5c.9.3 1.9.6 2.9.7a2 2 0 0 1 1.7 2Z"/>,
+    check: <path d="m5 12 4 4L19 6"/>,
   };
   return <svg aria-hidden="true" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{paths[name]}</svg>;
 }
@@ -48,6 +55,19 @@ export default function Home() {
   const [activeFilters, setActiveFilters] = useState<string[]>(["Terdekat"]);
   const [query, setQuery] = useState("");
   const [favorites, setFavorites] = useState<number[]>([]);
+  const [selected, setSelected] = useState<Listing | null>(null);
+  const [offerOpen, setOfferOpen] = useState(false);
+  const [offerAmount, setOfferAmount] = useState("6200000");
+  const [attempts, setAttempts] = useState(0);
+  const [offerMessage, setOfferMessage] = useState("");
+  const [dealActive, setDealActive] = useState(false);
+  const [showDeal, setShowDeal] = useState(false);
+  const [scheduled, setScheduled] = useState(false);
+  const [completed, setCompleted] = useState(false);
+
+  useEffect(() => {
+    if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => undefined);
+  }, []);
 
   const shown = useMemo(() => listings.filter((item) => {
     const matchesCategory = category === "Semua" || item.category === category;
@@ -57,6 +77,21 @@ export default function Home() {
   }), [category, query, activeFilters]);
 
   const toggleFilter = (filter: string) => setActiveFilters((current) => current.includes(filter) ? current.filter((item) => item !== filter) : [...current, filter]);
+  const submitOffer = () => {
+    if (!offerAmount || Number(offerAmount) < 100000) return;
+    const next = attempts + 1;
+    setAttempts(next);
+    if (next === 1) {
+      setOfferMessage(`Tawaran ${rupiah(Number(offerAmount))} ditolak. Coba lagi—masih ada 2 kesempatan.`);
+      setOfferAmount("6600000");
+    } else {
+      setDealActive(true);
+      setShowDeal(true);
+      setOfferOpen(false);
+      setSelected(null);
+      setOfferMessage("");
+    }
+  };
 
   return (
     <main className="app-shell">
@@ -73,7 +108,26 @@ export default function Home() {
         </div>
       </header>
 
-      <div className="content" id="top">
+      {showDeal ? <section className="deal-room" id="top">
+        <div className="deal-title-row"><div><p className="eyebrow">DEAL ROOM</p><h1>COD dengan Fajar</h1><span>Kesepakatan aktif · kontak sudah terbuka</span></div><button type="button" onClick={() => setShowDeal(false)}>Kembali ke beranda</button></div>
+        <div className="deal-layout">
+          <div className="deal-main">
+            {completed && <div className="completion-banner"><span><Icon name="check"/></span><div><strong>COD selesai</strong><p>Kedua pihak sudah mengonfirmasi serah terima.</p></div></div>}
+            <article className="deal-product"><img src={listings[0].image} alt={listings[0].title}/><div><span>{completed ? "SELESAI" : scheduled ? "COD TERJADWAL" : "DEAL DIBUAT"}</span><h2>{listings[0].title}</h2><strong>{rupiah(6600000)}</strong><p>Harga final terkunci · bayar saat bertemu</p></div></article>
+            <section className="timeline-card"><h2>Perjalanan COD</h2><div className="timeline">
+              {["Deal dibuat","Kontak dibuka","Jadwal disepakati","COD berlangsung","Selesai"].map((step,index) => <div className={(index < 2 || scheduled && index < 4 || completed) ? "done" : ""} key={step}><i>{index < 2 || scheduled && index < 4 || completed ? <Icon name="check" size={14}/> : index + 1}</i><span>{step}</span></div>)}
+            </div></section>
+            <section className="schedule-card"><div className="section-title"><div><p>LANGKAH BERIKUTNYA</p><h2>{scheduled ? "Jadwal COD" : "Atur waktu dan tempat COD"}</h2></div><Icon name="calendar"/></div>
+              {scheduled ? <div className="schedule-result"><div><Icon name="calendar"/><span><small>Waktu</small><strong>Rabu, 12 Agustus · 16.30 WITA</strong></span></div><div><Icon name="pin"/><span><small>Titik COD</small><strong>Alfamart Jl. Tun Abdul Razak</strong><em>1,8 km dari kamu · tempat umum</em></span></div><button type="button">Buka Maps</button></div> : <><div className="schedule-fields"><label>Tanggal<input type="date" defaultValue="2026-08-12"/></label><label>Jam<input type="time" defaultValue="16:30"/></label><label className="full">Titik temu<select defaultValue="alfamart"><option value="alfamart">Alfamart Jl. Tun Abdul Razak</option><option value="mall">Mall Panakkukang — Lobby Utama</option></select></label></div><button className="primary-action" type="button" onClick={() => setScheduled(true)}>Usulkan jadwal COD</button></>}
+            </section>
+          </div>
+          <aside className="deal-side">
+            <section><p>KONTAK PENJUAL</p><div className="seller-row"><span className="seller-avatar">FA</span><div><strong>Fajar Akbar</strong><small>24 COD selesai · 0 no-show</small></div></div><a href="tel:+6281234567890"><Icon name="phone"/> 0812 3456 7890</a><button type="button"><Icon name="chat"/> Buka chat</button></section>
+            <section className="safe-card"><Icon name="shield"/><div><strong>Bayar setelah diperiksa</strong><p>CODkan tidak memproses transfer. Bertemu di tempat umum dan cek kondisi barang.</p></div></section>
+            {scheduled && !completed && <button className="complete-button" type="button" onClick={() => setCompleted(true)}>Barang sudah diterima</button>}
+          </aside>
+        </div>
+      </section> : <div className="content" id="top">
         <section className="mobile-intro">
           <p className="eyebrow"><Icon name="pin" size={16}/> Menampilkan barang dalam 10 km</p>
           <h1>Temukan barang<br/><em>dekat kamu.</em></h1>
@@ -109,18 +163,48 @@ export default function Home() {
             {shown.length ? <div className="listing-grid">
               {shown.map((item) => <article className="listing-card" key={item.id}>
                 <div className="image-wrap"><img src={item.image} alt={item.title}/><button type="button" className={favorites.includes(item.id) ? "favorite active" : "favorite"} aria-label={favorites.includes(item.id) ? "Hapus dari favorit" : "Simpan ke favorit"} onClick={() => setFavorites((current) => current.includes(item.id) ? current.filter((id) => id !== item.id) : [...current, item.id])}><Icon name="heart" size={19}/></button>{item.negotiable && <span className="offer-tag">Bisa Ditawar</span>}</div>
-                <div className="listing-copy"><strong className="price">{rupiah(item.price)}</strong><h3>{item.title}</h3><p><Icon name="pin" size={14}/>{item.area} <span>·</span> {item.distance}</p><div className="card-foot"><span>{item.condition}</span><button type="button" aria-label={`Buka ${item.title}`}><Icon name="chevron" size={18}/></button></div></div>
+                <div className="listing-copy"><strong className="price">{rupiah(item.price)}</strong><h3>{item.title}</h3><p><Icon name="pin" size={14}/>{item.area} <span>·</span> {item.distance}</p><div className="card-foot"><span>{item.condition}</span><button type="button" aria-label={`Buka ${item.title}`} onClick={() => setSelected(item)}><Icon name="chevron" size={18}/></button></div></div>
               </article>)}
             </div> : <div className="empty"><h3>Belum ada barang yang cocok.</h3><p>Coba ganti kata pencarian atau filtermu.</p><button type="button" onClick={() => {setQuery(""); setCategory("Semua"); setActiveFilters(["Terdekat"]);}}>Reset pencarian</button></div>}
           </section>
         </div>
-      </div>
+      </div>}
+
+      {selected && <div className="overlay" role="dialog" aria-modal="true" aria-label={`Detail ${selected.title}`}>
+        <div className="detail-modal">
+          <button className="modal-close" type="button" aria-label="Tutup detail" onClick={() => setSelected(null)}><Icon name="close"/></button>
+          <div className="detail-image"><img src={selected.image} alt={selected.title}/><span>1 / 4</span></div>
+          <div className="detail-copy">
+            <div className="detail-price-row"><div><strong>{rupiah(selected.price)}</strong>{selected.negotiable && <span>Bisa Ditawar</span>}</div><button className={favorites.includes(selected.id) ? "favorite-detail active" : "favorite-detail"} type="button" aria-label="Simpan favorit" onClick={() => setFavorites((current) => current.includes(selected.id) ? current.filter((id) => id !== selected.id) : [...current, selected.id])}><Icon name="heart"/></button></div>
+            <h2>{selected.title}</h2><p className="detail-location"><Icon name="pin" size={17}/>{selected.area}, Gowa · sekitar {selected.distance}</p>
+            <div className="facts"><div><small>Kondisi</small><strong>{selected.condition}</strong></div><div><small>Diposting</small><strong>2 jam lalu</strong></div><div><small>Radius</small><strong>10 km</strong></div></div>
+            <section className="description"><h3>Deskripsi barang</h3><p>Kondisi sangat terawat, semua fungsi normal. Kelengkapan sesuai foto dan bisa dicek sepuasnya saat COD. Tidak melayani transfer atau pengiriman.</p></section>
+            <section className="seller-detail"><span className="seller-avatar">FA</span><div><strong>Fajar Akbar <i>✓</i></strong><p>24 COD selesai · 0 no-show</p><small>Bergabung 8 bulan</small></div><button type="button">Lihat profil</button></section>
+            <div className="privacy-note"><Icon name="shield"/><div><strong>Lokasi dan kontak tetap privat</strong><p>Kontak penjual terbuka setelah tawaran disepakati.</p></div></div>
+            <div className="detail-actions"><button className="chat-button" type="button"><Icon name="chat"/> Chat</button><button className="primary-action" type="button" onClick={() => selected.negotiable ? setOfferOpen(true) : (setDealActive(true), setShowDeal(true), setSelected(null))}>{selected.negotiable ? "Tawar Harga" : "Ajukan COD"}</button></div>
+          </div>
+        </div>
+      </div>}
+
+      {offerOpen && selected && <div className="sheet-overlay" role="dialog" aria-modal="true" aria-label="Tawar harga">
+        <div className="offer-sheet"><div className="sheet-handle"/><button className="modal-close" type="button" aria-label="Tutup tawaran" onClick={() => setOfferOpen(false)}><Icon name="close"/></button><p className="sheet-kicker">NEGOSIASI TERSTRUKTUR</p><h2>Tawar harga</h2><p className="seller-price">Harga penjual <strong>{rupiah(selected.price)}</strong></p>
+          <div className="attempt-row"><span>Kesempatan tawar</span><div>{[0,1,2].map((i)=><i className={i < attempts ? "used" : ""} key={i}/>)}</div><strong>{3-attempts} tersisa</strong></div>
+          {offerMessage && <div className="offer-alert">{offerMessage}</div>}
+          <label className="currency-label">Tawaran kamu<div><span>Rp</span><input type="text" inputMode="numeric" value={new Intl.NumberFormat("id-ID").format(Number(offerAmount || 0))} onChange={(e) => setOfferAmount(e.target.value.replace(/\D/g,""))}/></div></label>
+          <div className="quick-offers">{[6000000,6300000,6600000].map((value)=><button type="button" key={value} onClick={()=>setOfferAmount(String(value))}>{rupiah(value)}</button>)}</div>
+          {attempts === 2 && <p className="last-warning">Ini kesempatan tawar terakhir untuk barang ini.</p>}
+          <button className="primary-action send-offer" type="button" onClick={submitOffer}>Kirim Tawaran {attempts + 1}/3</button>
+          <p className="sheet-note"><Icon name="shield" size={16}/> Bayar tunai saat bertemu setelah barang diperiksa.</p>
+        </div>
+      </div>}
+
+      {dealActive && !showDeal && <button className="deal-toast" type="button" onClick={() => setShowDeal(true)}><span>DEAL</span><div><strong>Tawaranmu diterima!</strong><small>Buka Deal Room untuk atur COD</small></div><Icon name="chevron"/></button>}
 
       <nav className="bottom-nav" aria-label="Navigasi seluler">
         <button className="active" type="button"><Icon name="home"/><span>Beranda</span></button>
         <button type="button"><Icon name="search"/><span>Cari</span></button>
         <button className="sell" type="button"><Icon name="plus"/><span>Jual</span></button>
-        <button type="button"><Icon name="bell"/><span>Aktivitas</span><i/></button>
+        <button type="button" onClick={() => dealActive && setShowDeal(true)}><Icon name="bell"/><span>Aktivitas</span>{dealActive && <i/>}</button>
         <button type="button"><Icon name="user"/><span>Profil</span></button>
       </nav>
     </main>
