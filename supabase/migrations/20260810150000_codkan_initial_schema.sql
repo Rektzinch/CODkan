@@ -197,7 +197,7 @@ create policy media_visible on public.listing_media for select to authenticated 
 create policy media_owner_write on public.listing_media for insert to authenticated with check (exists (select 1 from public.listings l where l.id = listing_id and l.seller_id = (select auth.uid())));
 create policy media_owner_delete on public.listing_media for delete to authenticated using (exists (select 1 from public.listings l where l.id = listing_id and l.seller_id = (select auth.uid())));
 
-create policy state_participants_read on public.buyer_listing_state for select to authenticated using (buyer_id = (select auth.uid()) or exists (select 1 from public.listings l where l.id = listing_id and l.seller_id = (select auth.uid())));
+create policy state_buyer_read on public.buyer_listing_state for select to authenticated using (buyer_id = (select auth.uid()));
 
 create policy offers_participants_read on public.offers for select to authenticated using (buyer_id = (select auth.uid()) or seller_id = (select auth.uid()));
 create policy deals_participants_read on public.deals for select to authenticated using (buyer_id = (select auth.uid()) or seller_id = (select auth.uid()));
