@@ -8,7 +8,7 @@ type Profile = { id:string; display_name:string; phone:string|null; area:string;
 type PublicProfile = Omit<Profile,"phone">;
 type Media = { id:string; public_url:string; sort_order:number };
 type Listing = { id:string; seller_id:string; title:string; description:string; price:number; category:string; condition:string; negotiable:boolean; area:string; visibility_radius_km:number; status:string; created_at:string; listing_media:Media[]; seller:PublicProfile };
-type Offer = { id:string; listing_id:string; buyer_id:string; amount:number; attempt_number:number|null; source:string; status:string; created_at:string; listing:{title:string;price:number}; buyer:PublicProfile };
+type Offer = { id:string; listing_id:string; buyer_id:string; amount:number; attempt_number:number|null; source:string; status:string; created_at:string; listing:{title:string;price:number}|null; buyer:PublicProfile };
 type Deal = { id:string; listing_id:string; buyer_id:string; seller_id:string; final_price:number; status:string; created_at:string; listing:{title:string;listing_media:Media[]}|null; buyer:PublicProfile; seller:PublicProfile; cod_schedules:Array<{id:string;proposed_by:string;scheduled_at:string;location_name:string;location_address:string;notes:string|null;status:string}>; deal_confirmations:Array<{user_id:string}> };
 type Contact = { deal_id:string; display_name:string; phone:string|null };
 
@@ -195,7 +195,7 @@ export default function Home(){
 function IncomingOffer({offer,busy,onRespond}:{offer:Offer;busy:boolean;onRespond:(id:string,action:"accept"|"reject"|"counter",amount?:number|null)=>void}){
   const [countering,setCountering]=useState(false); const [amount,setAmount]=useState("");
   const value=Number(amount.replace(/\D/g,""));
-  return <article className="offer"><div><small>Tawaran {offer.attempt_number}/3 · {dateTime(offer.created_at)}</small><h3>{offer.listing.title}</h3><p>{offer.buyer.display_name} · {offer.buyer.completed_deals} COD selesai · harga pasang {rupiah(offer.listing.price)}</p></div><strong>{rupiah(offer.amount)}</strong>
+  return <article className="offer"><div><small>Tawaran {offer.attempt_number}/3 · {dateTime(offer.created_at)}</small><h3>{offer.listing?.title||"Barang"}</h3><p>{offer.buyer.display_name} · {offer.buyer.completed_deals} COD selesai{offer.listing&&` · harga pasang ${rupiah(offer.listing.price)}`}</p></div><strong>{rupiah(offer.amount)}</strong>
     {countering
       ?<div className="counter-box"><label>Harga balasan<div className="currency-input"><span>Rp</span><input value={amount?formatNumber(amount):""} onChange={e=>setAmount(e.target.value.replace(/\D/g,"").slice(0,14))} inputMode="numeric" placeholder="Contoh: 10.000" autoFocus/></div></label><div><button disabled={busy} onClick={()=>{setCountering(false);setAmount("")}}>Batal</button><button className="primary" disabled={busy||!value} onClick={()=>onRespond(offer.id,"counter",value)}>Kirim balasan</button></div><small>Pembeli yang memutuskan menerima atau menolak harga balasanmu.</small></div>
       :<div><button disabled={busy} onClick={()=>onRespond(offer.id,"reject")}>Tolak</button><button disabled={busy} onClick={()=>setCountering(true)}>Tawar balik</button><button className="primary" disabled={busy} onClick={()=>onRespond(offer.id,"accept")}>Terima</button></div>}
@@ -204,7 +204,7 @@ function IncomingOffer({offer,busy,onRespond}:{offer:Offer;busy:boolean;onRespon
 
 function MyOffer({offer,busy,onRespond}:{offer:Offer;busy:boolean;onRespond:(id:string,action:"accept"|"reject"|"counter",amount?:number|null)=>void}){
   const isCounter=offer.source==="seller_counter"&&offer.status==="pending";
-  return <article className="offer"><div><small>{isCounter?"BALASAN PENJUAL":offer.status==="countered"?"DIBALAS PENJUAL":`TAWARANMU ${offer.attempt_number}/3`} · {dateTime(offer.created_at)}</small><h3>{offer.listing.title}</h3><p>Harga pasang {rupiah(offer.listing.price)}</p></div><strong>{rupiah(offer.amount)}</strong>
+  return <article className="offer"><div><small>{isCounter?"BALASAN PENJUAL":offer.status==="countered"?"DIBALAS PENJUAL":`TAWARANMU ${offer.attempt_number}/3`} · {dateTime(offer.created_at)}</small><h3>{offer.listing?.title||"Barang"}</h3><p>{offer.listing?`Harga pasang ${rupiah(offer.listing.price)}`:"Barang tidak lagi tersedia"}</p></div><strong>{rupiah(offer.amount)}</strong>
     {isCounter
       ?<div><button disabled={busy} onClick={()=>onRespond(offer.id,"reject")}>Tolak</button><button className="primary" disabled={busy} onClick={()=>onRespond(offer.id,"accept")}>Terima harga ini</button></div>
       :<div><em className="waiting">{offer.status==="countered"?"Kamu sudah menjawab balasan ini.":"Menunggu jawaban penjual"}</em></div>}
