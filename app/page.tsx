@@ -5,26 +5,52 @@ import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 
 type Profile = { id:string; display_name:string; phone:string|null; area:string; avatar_url:string|null; completed_deals:number; no_shows:number; created_at:string };
+type PublicProfile = Omit<Profile,"phone">;
 type Media = { id:string; public_url:string; sort_order:number };
-type Listing = { id:string; seller_id:string; title:string; description:string; price:number; category:string; condition:string; negotiable:boolean; area:string; visibility_radius_km:number; status:string; created_at:string; listing_media:Media[]; seller:Profile };
-type Offer = { id:string; listing_id:string; buyer_id:string; amount:number; attempt_number:number; status:string; created_at:string; listing:{title:string;price:number}; buyer:Profile };
-type Deal = { id:string; listing_id:string; buyer_id:string; seller_id:string; final_price:number; status:string; created_at:string; listing:{title:string;listing_media:Media[]}|null; buyer:Profile; seller:Profile; cod_schedules:Array<{id:string;proposed_by:string;scheduled_at:string;location_name:string;location_address:string;notes:string|null;status:string}>; deal_confirmations:Array<{user_id:string}> };
+type Listing = { id:string; seller_id:string; title:string; description:string; price:number; category:string; condition:string; negotiable:boolean; area:string; visibility_radius_km:number; status:string; created_at:string; listing_media:Media[]; seller:PublicProfile };
+type Offer = { id:string; listing_id:string; buyer_id:string; amount:number; attempt_number:number; status:string; created_at:string; listing:{title:string;price:number}; buyer:PublicProfile };
+type Deal = { id:string; listing_id:string; buyer_id:string; seller_id:string; final_price:number; status:string; created_at:string; listing:{title:string;listing_media:Media[]}|null; buyer:PublicProfile; seller:PublicProfile; cod_schedules:Array<{id:string;proposed_by:string;scheduled_at:string;location_name:string;location_address:string;notes:string|null;status:string}>; deal_confirmations:Array<{user_id:string}> };
+type Contact = { deal_id:string; display_name:string; phone:string|null };
 
-const supabase = createClient();
-let guestSignInPromise: ReturnType<typeof supabase.auth.signInAnonymously> | null = null;
+// Resolved on first property access so the module stays importable during
+// prerender, where the public Supabase env vars are not present.
+const supabase = new Proxy({} as ReturnType<typeof createClient>, {
+  get: (_target, property) => {
+    const instance = createClient();
+    const value = Reflect.get(instance, property);
+    return typeof value === "function" ? value.bind(instance) : value;
+  },
+});
 const categories = ["Elektronik","Komputer","Fashion","Furnitur","Rumah","Hobi","Otomotif","Usaha","Produk Lokal","Lainnya"];
 const conditions = ["Baru","Seperti baru","Bekas baik","Bekas"];
+const MAX_PHOTO_BYTES = 5*1024*1024;
 const formatNumber = (value:string|number) => new Intl.NumberFormat("id-ID",{maximumFractionDigits:0}).format(Number(String(value).replace(/\D/g,""))||0);
 const rupiah = (value:number) => `Rp${formatNumber(value)}`;
 const dateTime = (value:string) => new Intl.DateTimeFormat("id-ID",{dateStyle:"medium",timeStyle:"short",timeZone:"Asia/Makassar"}).format(new Date(value));
-const authMessage = (value:string) => value.toLowerCase().includes("anonymous sign-ins are disabled")?"Mode tamu belum diaktifkan di backend Supabase.":value;
-
-async function getOrCreateGuestUser(){
-  const current=await supabase.auth.getUser();
-  if(current.data.user)return {user:current.data.user,error:null};
-  if(!guestSignInPromise)guestSignInPromise=supabase.auth.signInAnonymously().finally(()=>{guestSignInPromise=null});
-  const result=await guestSignInPromise;
-  return {user:result.data.user,error:result.error};
+const errorMessages:Record<string,string> = {
+  "invalid login credentials":"Email atau kata sandi salah.",
+  "user already registered":"Email ini sudah terdaftar. Silakan masuk.",
+  "email not confirmed":"Email belum dikonfirmasi. Cek kotak masuk kamu.",
+  "password should be at least 6 characters":"Kata sandi minimal 6 karakter.",
+  auth_required:"Sesi berakhir. Silakan masuk lagi.",
+  own_listing:"Kamu tidak bisa menawar barangmu sendiri.",
+  fixed_price:"Penjual menetapkan harga pas untuk barang ini.",
+  outside_area:"Barang ini berada di luar area domisilimu.",
+  blocked:"Kamu tidak dapat bertransaksi dengan pengguna ini.",
+  offer_limit_reached:"Batas tiga tawaran untuk barang ini sudah habis.",
+  pending_offer_exists:"Masih ada tawaran yang menunggu jawaban penjual.",
+  listing_unavailable:"Barang ini sudah tidak tersedia.",
+  offer_not_actionable:"Tawaran ini sudah tidak bisa dijawab.",
+  invalid_deal_state:"Status transaksi tidak memungkinkan aksi ini.",
+  deal_forbidden:"Kamu bukan peserta transaksi ini.",
+  schedule_in_past:"Jadwal COD harus di waktu yang akan datang.",
+  schedule_not_actionable:"Jadwal ini sudah tidak bisa disetujui.",
+  other_party_must_accept:"Jadwal usulanmu menunggu persetujuan pihak lain.",
+};
+function friendlyError(value:string){
+  const key=value.toLowerCase().trim();
+  for(const [needle,text] of Object.entries(errorMessages)) if(key.includes(needle)) return text;
+  return value;
 }
 
 function Icon({name,size=20}:{name:string;size?:number}) {
@@ -43,69 +69,137 @@ function ToggleField({name,label}:{name:string;label:string}){const [enabled,set
 
 function CurrencyInput({name,placeholder="Contoh: 10.000"}:{name:string;placeholder?:string}){const [digits,setDigits]=useState("");return <div className="currency-input"><span>Rp</span><input name={name} value={digits?formatNumber(digits):""} onChange={event=>setDigits(event.target.value.replace(/\D/g,"").slice(0,14))} inputMode="numeric" placeholder={placeholder} required/></div>}
 
+function AuthScreen({busy,error,notice,onSubmit,onClear}:{busy:boolean;error:string;notice:string;onSubmit:(mode:"signin"|"signup",email:string,password:string)=>void;onClear:()=>void}){
+  const [mode,setMode]=useState<"signin"|"signup">("signin");
+  return <main className="auth-page">
+    <aside className="auth-brand"><span className="brand">COD<span>kan</span></span><h1>Ketemu.<br/>Tawar.<br/><em>Deal.</em></h1><p>Marketplace lokal untuk menemukan barang di sekitarmu, menawar dengan wajar, dan bertransaksi COD di tempat umum.</p><div><Icon name="shield" size={22}/><span><strong>Kontak tetap privat</strong><small>Nomor telepon hanya terbuka setelah deal disepakati.</small></span></div></aside>
+    <form className="auth-card" onSubmit={event=>{event.preventDefault();const form=new FormData(event.currentTarget);onSubmit(mode,String(form.get("email")).trim(),String(form.get("password")));}}>
+      <p>{mode==="signin"?"MASUK KE AKUN":"BUAT AKUN BARU"}</p>
+      <h2>{mode==="signin"?"Selamat datang kembali":"Mulai jual beli lokal"}</h2>
+      <label>Email<input name="email" type="email" autoComplete="email" required/></label>
+      <label>Kata sandi<input name="password" type="password" autoComplete={mode==="signin"?"current-password":"new-password"} minLength={8} required/>{mode==="signup"&&<small style={{fontWeight:400,color:"var(--muted)"}}>Minimal 8 karakter.</small>}</label>
+      {error&&<div className="alert error">{error}</div>}
+      {notice&&<div className="alert success">{notice}</div>}
+      <button className="primary" disabled={busy}>{busy?"Memproses…":mode==="signin"?"Masuk":"Daftar"}</button>
+      <button type="button" className="text-button" onClick={()=>{setMode(mode==="signin"?"signup":"signin");onClear()}}>{mode==="signin"?"Belum punya akun? Daftar":"Sudah punya akun? Masuk"}</button>
+    </form>
+  </main>;
+}
+
 export default function Home(){
   const [user,setUser]=useState<User|null>(null); const [profile,setProfile]=useState<Profile|null>(null);
   const [loading,setLoading]=useState(true); const [message,setMessage]=useState(""); const [error,setError]=useState("");
-  const [listings,setListings]=useState<Listing[]>([]); const [offers,setOffers]=useState<Offer[]>([]); const [deals,setDeals]=useState<Deal[]>([]);
+  const [listings,setListings]=useState<Listing[]>([]); const [offers,setOffers]=useState<Offer[]>([]); const [deals,setDeals]=useState<Deal[]>([]); const [contacts,setContacts]=useState<Contact[]>([]);
   const [tab,setTab]=useState<"home"|"sell"|"activity"|"profile">("home"); const [query,setQuery]=useState(""); const [category,setCategory]=useState("Semua");
   const [selected,setSelected]=useState<Listing|null>(null); const [offerAmount,setOfferAmount]=useState(""); const [submitting,setSubmitting]=useState(false);
 
   const loadData=useCallback(async(currentUser:User,currentProfile:Profile)=>{
-    const [listingResult,offerResult,dealResult]=await Promise.all([
-      supabase.from("listings").select("*,listing_media(*),seller:profiles!listings_seller_id_fkey(*)").order("created_at",{ascending:false}),
-      supabase.from("offers").select("id,listing_id,buyer_id,amount,attempt_number,status,created_at,listing:listings!offers_listing_id_fkey(title,price),buyer:profiles!offers_buyer_id_fkey(*)").eq("seller_id",currentUser.id).eq("status","pending").order("created_at",{ascending:false}),
-      supabase.from("deals").select("id,listing_id,buyer_id,seller_id,final_price,status,created_at,listing:listings!deals_listing_id_fkey(title,listing_media(*)),buyer:profiles!deals_buyer_id_fkey(*),seller:profiles!deals_seller_id_fkey(*),cod_schedules(*),deal_confirmations(user_id)").or(`buyer_id.eq.${currentUser.id},seller_id.eq.${currentUser.id}`).order("created_at",{ascending:false})
+    const [listingResult,offerResult,dealResult,contactResult]=await Promise.all([
+      supabase.from("listings").select("*,listing_media(*),seller:profiles!listings_seller_id_fkey(id,display_name,area,avatar_url,completed_deals,no_shows,created_at)").eq("status","active").order("created_at",{ascending:false}),
+      supabase.from("offers").select("id,listing_id,buyer_id,amount,attempt_number,status,created_at,listing:listings!offers_listing_id_fkey(title,price),buyer:profiles!offers_buyer_id_fkey(id,display_name,area,avatar_url,completed_deals,no_shows,created_at)").eq("seller_id",currentUser.id).eq("status","pending").order("created_at",{ascending:false}),
+      supabase.from("deals").select("id,listing_id,buyer_id,seller_id,final_price,status,created_at,listing:listings!deals_listing_id_fkey(title,listing_media(*)),buyer:profiles!deals_buyer_id_fkey(id,display_name,area,avatar_url,completed_deals,no_shows,created_at),seller:profiles!deals_seller_id_fkey(id,display_name,area,avatar_url,completed_deals,no_shows,created_at),cod_schedules(*),deal_confirmations(user_id)").or(`buyer_id.eq.${currentUser.id},seller_id.eq.${currentUser.id}`).order("created_at",{ascending:false}),
+      supabase.rpc("my_deal_contacts")
     ]);
-    if(listingResult.error) setError(listingResult.error.message); else setListings((listingResult.data||[]) as unknown as Listing[]);
+    if(listingResult.error) setError(friendlyError(listingResult.error.message)); else setListings((listingResult.data||[]) as unknown as Listing[]);
     if(!offerResult.error) setOffers((offerResult.data||[]) as unknown as Offer[]);
     if(!dealResult.error) setDeals((dealResult.data||[]) as unknown as Deal[]);
+    if(!contactResult.error) setContacts((contactResult.data||[]) as unknown as Contact[]);
     setProfile(currentProfile);
   },[]);
 
   const bootstrap=useCallback(async()=>{
-    setLoading(true); setError(""); const {user:currentUser,error:authError}=await getOrCreateGuestUser(); setUser(currentUser);
-    if(authError||!currentUser){setError(authMessage(authError?.message||"Sesi tamu tidak dapat dibuat."));setLoading(false);return}
-    const {data,error:profileError}=await supabase.from("profiles").select("*").eq("id",currentUser.id).maybeSingle();
-    if(profileError)setError(profileError.message); else if(data)await loadData(currentUser,data as Profile);
+    setLoading(true);
+    const {data:{user:currentUser}}=await supabase.auth.getUser();
+    setUser(currentUser);
+    if(!currentUser){setProfile(null);setListings([]);setOffers([]);setDeals([]);setContacts([]);setLoading(false);return}
+    const {data,error:profileError}=await supabase.rpc("my_profile").maybeSingle();
+    if(profileError)setError(friendlyError(profileError.message));
+    else if(data){await loadData(currentUser,data as Profile)}
+    else setProfile(null);
     setLoading(false);
   },[loadData]);
 
-  useEffect(()=>{const timer=setTimeout(()=>void bootstrap(),0); const {data}=supabase.auth.onAuthStateChange(()=>void bootstrap()); return()=>{clearTimeout(timer);data.subscription.unsubscribe()};},[bootstrap]);
-  useEffect(()=>{if(!user)return; const channel=supabase.channel(`codkan-${user.id}`).on("postgres_changes",{event:"*",schema:"public",table:"offers"},()=>profile&&loadData(user,profile)).on("postgres_changes",{event:"*",schema:"public",table:"deals"},()=>profile&&loadData(user,profile)).subscribe(); return()=>{supabase.removeChannel(channel)};},[user,profile,loadData]);
+  useEffect(()=>{const timer=setTimeout(()=>void bootstrap(),0); const {data}=supabase.auth.onAuthStateChange(event=>{if(event==="SIGNED_IN"||event==="SIGNED_OUT")void bootstrap()}); return()=>{clearTimeout(timer);data.subscription.unsubscribe()};},[bootstrap]);
+  useEffect(()=>{
+    if(!user||!profile)return;
+    const refresh=()=>{void loadData(user,profile)};
+    const channel=supabase.channel(`codkan-${user.id}`)
+      .on("postgres_changes",{event:"*",schema:"public",table:"offers"},refresh)
+      .on("postgres_changes",{event:"*",schema:"public",table:"deals"},refresh)
+      .on("postgres_changes",{event:"*",schema:"public",table:"cod_schedules"},refresh)
+      .on("postgres_changes",{event:"*",schema:"public",table:"deal_confirmations"},refresh)
+      .subscribe();
+    return()=>{void supabase.removeChannel(channel)};
+  },[user,profile,loadData]);
 
-  const visible=useMemo(()=>listings.filter(l=>(category==="Semua"||l.category===category)&&(`${l.title} ${l.description}`.toLowerCase().includes(query.toLowerCase()))),[listings,category,query]);
-  const clear=()=>{setError("");setMessage("")};
+  const visible=useMemo(()=>{const needle=query.trim().toLowerCase();return listings.filter(l=>(category==="Semua"||l.category===category)&&(!needle||`${l.title} ${l.description}`.toLowerCase().includes(needle)))},[listings,category,query]);
+  const clear=useCallback(()=>{setError("");setMessage("")},[]);
+  const fail=(value:string)=>setError(friendlyError(value));
 
-  async function saveProfile(e:FormEvent<HTMLFormElement>){e.preventDefault();if(!user)return;clear();setSubmitting(true);const form=new FormData(e.currentTarget);const payload={id:user.id,display_name:String(form.get("name")),phone:String(form.get("phone"))||null,area:String(form.get("area"))};const {data,error:err}=await supabase.from("profiles").insert(payload).select().single();setSubmitting(false);if(err)setError(err.message);else await loadData(user,data as Profile);}
-  async function createListing(e:FormEvent<HTMLFormElement>){e.preventDefault();if(!user||!profile)return;clear();setSubmitting(true);const form=new FormData(e.currentTarget);const file=form.get("photo") as File;const id=crypto.randomUUID();const payload={id,seller_id:user.id,title:String(form.get("title")),description:String(form.get("description")),price:Number(String(form.get("price")).replace(/\D/g,"")),category:String(form.get("category")),condition:String(form.get("condition")),negotiable:form.get("negotiable")==="on",area:profile.area,visibility_radius_km:Number(form.get("radius")),status:"draft"};
-    const created=await supabase.from("listings").insert(payload).select().single();if(created.error){setSubmitting(false);setError(created.error.message);return}
+  async function authenticate(mode:"signin"|"signup",email:string,password:string){
+    clear();setSubmitting(true);
+    const result=mode==="signin"
+      ? await supabase.auth.signInWithPassword({email,password})
+      : await supabase.auth.signUp({email,password});
+    setSubmitting(false);
+    if(result.error){fail(result.error.message);return}
+    if(mode==="signup"&&!result.data.session){setMessage("Akun dibuat. Cek email untuk konfirmasi, lalu masuk.");return}
+    await bootstrap();
+  }
+  async function signOut(){setSubmitting(true);await supabase.auth.signOut();setSubmitting(false);setTab("home");await bootstrap()}
+
+  async function saveProfile(e:FormEvent<HTMLFormElement>){e.preventDefault();if(!user)return;clear();setSubmitting(true);const form=new FormData(e.currentTarget);const phone=String(form.get("phone")).trim();const payload={id:user.id,display_name:String(form.get("name")).trim(),phone:phone||null,area:String(form.get("area")).trim()};const {error:err}=await supabase.from("profiles").insert(payload);if(err){setSubmitting(false);fail(err.message);return}const {data,error:readError}=await supabase.rpc("my_profile").maybeSingle();setSubmitting(false);if(readError||!data){fail(readError?.message||"Profil tidak dapat dibaca.");return}await loadData(user,data as Profile);}
+  async function createListing(e:FormEvent<HTMLFormElement>){e.preventDefault();if(!user||!profile)return;clear();const form=new FormData(e.currentTarget);const file=form.get("photo") as File;
+    if(!file||file.size===0){fail("Pilih foto barang terlebih dahulu.");return}
+    if(file.size>MAX_PHOTO_BYTES){fail("Ukuran foto melebihi 5 MB.");return}
+    const price=Number(String(form.get("price")).replace(/\D/g,""));
+    if(!price){fail("Harga barang harus lebih dari nol.");return}
+    setSubmitting(true);const id=crypto.randomUUID();
+    const payload={id,seller_id:user.id,title:String(form.get("title")).trim(),description:String(form.get("description")).trim(),price,category:String(form.get("category")),condition:String(form.get("condition")),negotiable:form.get("negotiable")==="on",area:profile.area,visibility_radius_km:Number(form.get("radius")),status:"draft"};
+    const created=await supabase.from("listings").insert(payload);if(created.error){setSubmitting(false);fail(created.error.message);return}
     const safeName=file.name.toLowerCase().replace(/[^a-z0-9.]+/g,"-");const path=`${user.id}/${id}/${Date.now()}-${safeName}`;const uploaded=await supabase.storage.from("listing-media").upload(path,file,{contentType:file.type,upsert:false});
-    if(uploaded.error){await supabase.from("listings").delete().eq("id",id);setSubmitting(false);setError(uploaded.error.message);return}
+    if(uploaded.error){await supabase.from("listings").delete().eq("id",id);setSubmitting(false);fail(uploaded.error.message);return}
     const publicUrl=supabase.storage.from("listing-media").getPublicUrl(path).data.publicUrl;const media=await supabase.from("listing_media").insert({listing_id:id,storage_path:path,public_url:publicUrl});
-    if(media.error){setSubmitting(false);setError(media.error.message);return}await supabase.from("listings").update({status:"active"}).eq("id",id);setSubmitting(false);setMessage("Barang berhasil dipasang.");setTab("home");await loadData(user,profile);}
-  async function submitOffer(){if(!selected||!offerAmount)return;clear();setSubmitting(true);const {error:err}=await supabase.rpc("submit_offer",{p_listing_id:selected.id,p_amount:Number(offerAmount.replace(/\D/g,""))});setSubmitting(false);if(err)setError(err.message);else{setMessage("Tawaran terkirim ke penjual.");setSelected(null);setOfferAmount("");if(user&&profile)await loadData(user,profile)}}
-  async function respond(offerId:string,action:"accept"|"reject"){clear();setSubmitting(true);const {error:err}=await supabase.rpc("respond_offer",{p_offer_id:offerId,p_action:action,p_counter_amount:null});setSubmitting(false);if(err)setError(err.message);else{setMessage(action==="accept"?"Tawaran diterima. Deal Room dibuat.":"Tawaran ditolak.");if(user&&profile)await loadData(user,profile)}}
-  async function proposeSchedule(e:FormEvent<HTMLFormElement>,dealId:string){e.preventDefault();clear();const form=new FormData(e.currentTarget);const date=String(form.get("scheduled_date")).replace(/\D/g,"");const time=String(form.get("scheduled_time")).replace(/\D/g,"");if(date.length!==8||time.length!==4){setError("Isi tanggal DDMMYYYY dan waktu HHMM.");return}const day=Number(date.slice(0,2));const month=Number(date.slice(2,4));const year=Number(date.slice(4));const hour=Number(time.slice(0,2));const minute=Number(time.slice(2));const lastDay=month>=1&&month<=12?new Date(year,month,0).getDate():0;if(year<2026||day<1||day>lastDay||hour>23||minute>59){setError("Tanggal atau waktu tidak valid.");return}const scheduled=new Date(`${year}-${String(month).padStart(2,"0")}-${String(day).padStart(2,"0")}T${String(hour).padStart(2,"0")}:${String(minute).padStart(2,"0")}:00+08:00`);setSubmitting(true);const {error:err}=await supabase.rpc("propose_cod_schedule",{p_deal_id:dealId,p_scheduled_at:scheduled.toISOString(),p_location_name:String(form.get("location_name")),p_location_address:String(form.get("location_address")),p_notes:String(form.get("notes"))||null});setSubmitting(false);if(err)setError(err.message);else if(user&&profile)await loadData(user,profile)}
-  async function acceptSchedule(dealId:string){setSubmitting(true);const {error:err}=await supabase.rpc("accept_cod_schedule",{p_deal_id:dealId});setSubmitting(false);if(err)setError(err.message);else if(user&&profile)await loadData(user,profile)}
-  async function confirmDeal(dealId:string){setSubmitting(true);const {data,error:err}=await supabase.rpc("confirm_deal_completion",{p_deal_id:dealId});setSubmitting(false);if(err)setError(err.message);else{setMessage(data==="completed"?"COD selesai dan reputasi diperbarui.":"Konfirmasi tersimpan. Menunggu pihak lain.");if(user&&profile)await loadData(user,profile)}}
+    if(media.error){await supabase.storage.from("listing-media").remove([path]);await supabase.from("listings").delete().eq("id",id);setSubmitting(false);fail(media.error.message);return}
+    const activated=await supabase.from("listings").update({status:"active"}).eq("id",id);setSubmitting(false);
+    if(activated.error){fail(activated.error.message);return}
+    setMessage("Barang berhasil dipasang.");setTab("home");await loadData(user,profile);}
+  async function submitOffer(){if(!selected||!offerAmount)return;const amount=Number(offerAmount.replace(/\D/g,""));if(!amount){fail("Nominal tawaran tidak valid.");return}await sendOffer(selected.id,amount);setOfferAmount("")}
+  async function buyAtAskingPrice(listing:Listing){await sendOffer(listing.id,listing.price)}
+  async function sendOffer(listingId:string,amount:number){clear();setSubmitting(true);const {error:err}=await supabase.rpc("submit_offer",{p_listing_id:listingId,p_amount:amount});setSubmitting(false);if(err){fail(err.message);return}setMessage("Tawaran terkirim ke penjual.");setSelected(null);if(user&&profile)await loadData(user,profile)}
+  async function respond(offerId:string,action:"accept"|"reject"){clear();setSubmitting(true);const {error:err}=await supabase.rpc("respond_offer",{p_offer_id:offerId,p_action:action,p_counter_amount:null});setSubmitting(false);if(err)fail(err.message);else{setMessage(action==="accept"?"Tawaran diterima. Deal Room dibuat.":"Tawaran ditolak.");if(user&&profile)await loadData(user,profile)}}
+  async function proposeSchedule(e:FormEvent<HTMLFormElement>,dealId:string){e.preventDefault();clear();const formElement=e.currentTarget;const form=new FormData(formElement);const date=String(form.get("scheduled_date")).replace(/\D/g,"");const time=String(form.get("scheduled_time")).replace(/\D/g,"");if(date.length!==8||time.length!==4){fail("Isi tanggal DDMMYYYY dan waktu HHMM.");return}const day=Number(date.slice(0,2));const month=Number(date.slice(2,4));const year=Number(date.slice(4));const hour=Number(time.slice(0,2));const minute=Number(time.slice(2));const lastDay=month>=1&&month<=12?new Date(year,month,0).getDate():0;if(!lastDay||day<1||day>lastDay||hour>23||minute>59){fail("Tanggal atau waktu tidak valid.");return}const scheduled=new Date(`${year}-${String(month).padStart(2,"0")}-${String(day).padStart(2,"0")}T${String(hour).padStart(2,"0")}:${String(minute).padStart(2,"0")}:00+08:00`);if(scheduled.getTime()<=Date.now()){fail("Jadwal COD harus di waktu yang akan datang.");return}setSubmitting(true);const {error:err}=await supabase.rpc("propose_cod_schedule",{p_deal_id:dealId,p_scheduled_at:scheduled.toISOString(),p_location_name:String(form.get("location_name")).trim(),p_location_address:String(form.get("location_address")).trim(),p_notes:String(form.get("notes")).trim()||null});setSubmitting(false);if(err)fail(err.message);else{formElement.reset();setMessage("Usulan jadwal terkirim.");if(user&&profile)await loadData(user,profile)}}
+  async function acceptSchedule(dealId:string){clear();setSubmitting(true);const {error:err}=await supabase.rpc("accept_cod_schedule",{p_deal_id:dealId});setSubmitting(false);if(err)fail(err.message);else{setMessage("Jadwal COD disepakati.");if(user&&profile)await loadData(user,profile)}}
+  async function confirmDeal(dealId:string){clear();setSubmitting(true);const {data,error:err}=await supabase.rpc("confirm_deal_completion",{p_deal_id:dealId});setSubmitting(false);if(err)fail(err.message);else{setMessage(data==="completed"?"COD selesai dan reputasi diperbarui.":"Konfirmasi tersimpan. Menunggu pihak lain.");if(user&&profile)await loadData(user,profile)}}
+  async function cancelDeal(dealId:string){if(!window.confirm("Batalkan transaksi ini? Membatalkan jadwal yang sudah disepakati akan menambah catatan no-show."))return;clear();setSubmitting(true);const {error:err}=await supabase.rpc("cancel_deal",{p_deal_id:dealId,p_reason:null});setSubmitting(false);if(err)fail(err.message);else{setMessage("Transaksi dibatalkan.");if(user&&profile)await loadData(user,profile)}}
 
   if(loading)return <main className="center"><div className="loader"/><p>Menyiapkan CODkan…</p></main>;
-  if(!user)return <main className="center"><Icon name="shield" size={34}/><h1>Mode tamu belum siap</h1><p>{error||"Sesi tamu tidak dapat dibuat."}</p><button className="primary" onClick={()=>void bootstrap()}>Coba lagi</button></main>;
-  if(!profile)return <main className="onboarding"><form onSubmit={saveProfile}><a className="brand">COD<span>kan</span></a><p>MODE UJI TANPA LOGIN</p><h1>Atur pasar lokalmu</h1><span>Profil ini tersimpan untuk sesi perangkatmu. Area menentukan barang yang bisa kamu lihat dan tawar.</span><label>Nama tampilan<input name="name" minLength={2} required/></label><label>Nomor telepon <small>(terbuka hanya setelah deal)</small><input name="phone" type="tel"/></label><label>Area domisili<input name="area" placeholder="Contoh: Somba Opu, Gowa" minLength={2} required/></label>{error&&<div className="alert error">{error}</div>}<button className="primary" disabled={submitting}>Simpan dan mulai</button></form></main>;
+  if(!user)return <AuthScreen busy={submitting} error={error} notice={message} onSubmit={authenticate} onClear={clear}/>;
+  if(!profile)return <main className="onboarding"><form onSubmit={saveProfile}><span className="brand">COD<span>kan</span></span><p>LENGKAPI PROFIL</p><h1>Atur pasar lokalmu</h1><span>Area menentukan barang yang bisa kamu lihat dan tawar. Nomor telepon hanya terbuka setelah deal disepakati.</span><label>Nama tampilan<input name="name" minLength={2} maxLength={60} required/></label><label>Nomor telepon <small>(terbuka hanya setelah deal)</small><input name="phone" type="tel"/></label><label>Area domisili<input name="area" placeholder="Contoh: Somba Opu, Gowa" minLength={2} maxLength={120} required/></label>{error&&<div className="alert error">{error}</div>}<button className="primary" disabled={submitting}>{submitting?"Menyimpan…":"Simpan dan mulai"}</button><button type="button" className="text-button" onClick={signOut}>Keluar</button></form></main>;
 
   return <main className="app">
     <header><div className="header-inner"><button className="brand plain" onClick={()=>setTab("home")}>COD<span>kan</span></button><button className="area"><Icon name="pin"/><span><small>Area aktif</small><strong>{profile.area}</strong></span></button><div className="header-search"><Icon name="search"/><input aria-label="Cari barang" placeholder="Cari barang di sekitar…" value={query} onChange={e=>setQuery(e.target.value)}/></div><nav><button onClick={()=>setTab("sell")}><Icon name="plus"/>Jual Barang</button><button onClick={()=>setTab("activity")}><Icon name="bell"/>{offers.length>0&&<i/>}</button><button onClick={()=>setTab("profile")} className="avatar">{profile.display_name.slice(0,2).toUpperCase()}</button></nav></div></header>
     {(error||message)&&<div className={`toast ${error?"bad":"good"}`}><span>{error||message}</span><button onClick={clear}><Icon name="close" size={17}/></button></div>}
     {tab==="home"&&<section className="page"><div className="mobile-title"><p><Icon name="pin" size={15}/> {profile.area}</p><h1>Barang nyata<br/><em>dekat kamu.</em></h1></div><div className="mobile-search"><Icon name="search"/><input placeholder="Cari barang di sekitar…" value={query} onChange={e=>setQuery(e.target.value)}/></div><div className="chips"><button className={category==="Semua"?"active":""} onClick={()=>setCategory("Semua")}>Semua</button>{categories.map(c=><button className={category===c?"active":""} onClick={()=>setCategory(c)} key={c}>{c}</button>)}</div><div className="heading"><div><p>PASAR {profile.area.toUpperCase()}</p><h1>Barang terbaru di sekitar</h1></div><span>{visible.length} barang aktif</span></div>{visible.length===0?<div className="empty"><div><Icon name="search" size={28}/></div><h2>Belum ada barang di area ini</h2><p>Listing akan muncul setelah pengguna di {profile.area} memasang barang.</p><button className="primary" onClick={()=>setTab("sell")}>Pasang barang pertama</button></div>:<div className="grid">{visible.map(item=><article key={item.id} onClick={()=>setSelected(item)}><div className="photo">{item.listing_media[0]?<img src={item.listing_media[0].public_url} alt={item.title}/>:<span>Foto tidak tersedia</span>}{item.negotiable&&<b>Bisa Ditawar</b>}</div><div className="card-copy"><strong>{rupiah(item.price)}</strong><h2>{item.title}</h2><p><Icon name="pin" size={14}/>{item.area}</p><small>{item.condition} · {dateTime(item.created_at)}</small></div></article>)}</div>}</section>}
     {tab==="sell"&&<section className="page narrow"><div className="heading"><div><p>JUAL BARANG</p><h1>Pasang barang baru</h1></div></div><form className="panel form" onSubmit={createListing}><FilePicker/><label>Judul<input name="title" minLength={5} maxLength={120} required/></label><label>Deskripsi<textarea name="description" minLength={10} maxLength={4000} rows={5} required/></label><div className="two"><label>Harga<CurrencyInput name="price"/></label><label>Radius penemuan<CustomSelect name="radius" defaultValue="10" options={[{value:"5",label:"5 km"},{value:"10",label:"10 km"},{value:"25",label:"25 km"},{value:"50",label:"50 km"}]}/></label></div><div className="two"><label>Kategori<CustomSelect name="category" defaultValue={categories[0]} options={categories.map(value=>({value,label:value}))}/></label><label>Kondisi<CustomSelect name="condition" defaultValue={conditions[0]} options={conditions.map(value=>({value,label:value}))}/></label></div><ToggleField name="negotiable" label="Harga bisa ditawar maksimal tiga kali"/><div className="safety"><Icon name="shield"/><span><strong>Pembayaran wajib COD</strong><small>Kontak dan lokasi presisi tidak ditampilkan sebelum deal.</small></span></div><button className="primary" disabled={submitting}>{submitting?"Memasang…":"Pasang barang"}</button></form></section>}
-    {tab==="activity"&&<section className="page"><div className="heading"><div><p>AKTIVITAS</p><h1>Tawaran dan Deal Room</h1></div></div><div className="activity-layout"><section><h2>Tawaran masuk <span>{offers.length}</span></h2>{offers.length===0?<div className="mini-empty">Belum ada tawaran yang menunggu jawaban.</div>:offers.map(o=><article className="offer" key={o.id}><div><small>Tawaran {o.attempt_number}/3 · {dateTime(o.created_at)}</small><h3>{o.listing.title}</h3><p>{o.buyer.display_name} · {o.buyer.completed_deals} COD selesai</p></div><strong>{rupiah(o.amount)}</strong><div><button onClick={()=>respond(o.id,"reject")}>Tolak</button><button className="primary" onClick={()=>respond(o.id,"accept")}>Terima</button></div></article>)}</section><section><h2>Deal aktif <span>{deals.filter(d=>d.status!=="completed"&&d.status!=="cancelled").length}</span></h2>{deals.length===0?<div className="mini-empty">Deal Room dibuat otomatis setelah tawaran diterima.</div>:deals.map(d=><DealRoom key={d.id} deal={d} userId={user.id} busy={submitting} onPropose={proposeSchedule} onAccept={acceptSchedule} onConfirm={confirmDeal}/>)}</section></div></section>}
-    {tab==="profile"&&<section className="page narrow"><div className="heading"><div><p>PROFIL</p><h1>{profile.display_name}</h1></div></div><div className="panel profile"><div className="profile-avatar">{profile.display_name.slice(0,2).toUpperCase()}</div><div><strong>{profile.area}</strong><p>{profile.completed_deals} COD selesai · {profile.no_shows} no-show</p><small>Bergabung {new Intl.DateTimeFormat("id-ID",{month:"long",year:"numeric"}).format(new Date(profile.created_at))}</small></div><span className="guest-session"><Icon name="shield" size={17}/>Sesi tamu</span></div></section>}
-    {selected&&<div className="overlay" role="dialog" aria-modal="true" aria-label={selected.title}><section className="detail"><button className="close" onClick={()=>setSelected(null)}><Icon name="close"/></button><div className="detail-photo">{selected.listing_media[0]&&<img src={selected.listing_media[0].public_url} alt={selected.title}/>}</div><div className="detail-body"><div className="price-line"><strong>{rupiah(selected.price)}</strong>{selected.negotiable&&<span>Bisa Ditawar</span>}</div><h1>{selected.title}</h1><p className="location"><Icon name="pin" size={16}/>{selected.area}</p><div className="facts"><span><small>Kondisi</small><strong>{selected.condition}</strong></span><span><small>Radius</small><strong>{selected.visibility_radius_km} km</strong></span><span><small>Dipasang</small><strong>{dateTime(selected.created_at)}</strong></span></div><h3>Deskripsi</h3><p className="description">{selected.description}</p><div className="seller"><div className="avatar">{selected.seller.display_name.slice(0,2).toUpperCase()}</div><span><strong>{selected.seller.display_name}</strong><small>{selected.seller.completed_deals} COD selesai · {selected.seller.no_shows} no-show</small></span></div><div className="safety"><Icon name="shield"/><span><strong>Kontak tetap privat sebelum deal</strong><small>Bayar saat bertemu setelah barang diperiksa.</small></span></div>{selected.seller_id!==user.id&&selected.negotiable&&<div className="offer-box"><label>Nominal tawaran<div className="currency-input"><span>Rp</span><input value={offerAmount?formatNumber(offerAmount):""} onChange={e=>setOfferAmount(e.target.value.replace(/\D/g,"").slice(0,14))} inputMode="numeric" placeholder="Contoh: 10.000"/></div></label><button className="primary" disabled={submitting||!offerAmount} onClick={submitOffer}>Kirim tawaran</button><small>Maksimal tiga tawaran untuk listing ini.</small></div>}</div></section></div>}
+    {tab==="activity"&&<section className="page"><div className="heading"><div><p>AKTIVITAS</p><h1>Tawaran dan Deal Room</h1></div></div><div className="activity-layout"><section><h2>Tawaran masuk <span>{offers.length}</span></h2>{offers.length===0?<div className="mini-empty">Belum ada tawaran yang menunggu jawaban.</div>:offers.map(o=><article className="offer" key={o.id}><div><small>Tawaran {o.attempt_number}/3 · {dateTime(o.created_at)}</small><h3>{o.listing.title}</h3><p>{o.buyer.display_name} · {o.buyer.completed_deals} COD selesai</p></div><strong>{rupiah(o.amount)}</strong><div><button disabled={submitting} onClick={()=>respond(o.id,"reject")}>Tolak</button><button className="primary" disabled={submitting} onClick={()=>respond(o.id,"accept")}>Terima</button></div></article>)}</section><section><h2>Deal aktif <span>{deals.filter(d=>d.status!=="completed"&&d.status!=="cancelled").length}</span></h2>{deals.length===0?<div className="mini-empty">Deal Room dibuat otomatis setelah tawaran diterima.</div>:deals.map(d=><DealRoom key={d.id} deal={d} userId={user.id} busy={submitting} contact={contacts.find(c=>c.deal_id===d.id)} onPropose={proposeSchedule} onAccept={acceptSchedule} onConfirm={confirmDeal} onCancel={cancelDeal}/>)}</section></div></section>}
+    {tab==="profile"&&<section className="page narrow"><div className="heading"><div><p>PROFIL</p><h1>{profile.display_name}</h1></div></div><div className="panel profile"><div className="profile-avatar">{profile.display_name.slice(0,2).toUpperCase()}</div><div><strong>{profile.area}</strong><p>{profile.completed_deals} COD selesai · {profile.no_shows} no-show</p><small>Bergabung {new Intl.DateTimeFormat("id-ID",{month:"long",year:"numeric"}).format(new Date(profile.created_at))}</small></div><button onClick={signOut} disabled={submitting}><Icon name="logout" size={17}/>Keluar</button></div></section>}
+    {selected&&<div className="overlay" role="dialog" aria-modal="true" aria-label={selected.title}><section className="detail"><button className="close" onClick={()=>setSelected(null)}><Icon name="close"/></button><div className="detail-photo">{selected.listing_media[0]&&<img src={selected.listing_media[0].public_url} alt={selected.title}/>}</div><div className="detail-body"><div className="price-line"><strong>{rupiah(selected.price)}</strong>{selected.negotiable&&<span>Bisa Ditawar</span>}</div><h1>{selected.title}</h1><p className="location"><Icon name="pin" size={16}/>{selected.area}</p><div className="facts"><span><small>Kondisi</small><strong>{selected.condition}</strong></span><span><small>Radius</small><strong>{selected.visibility_radius_km} km</strong></span><span><small>Dipasang</small><strong>{dateTime(selected.created_at)}</strong></span></div><h3>Deskripsi</h3><p className="description">{selected.description}</p><div className="seller"><div className="avatar">{selected.seller.display_name.slice(0,2).toUpperCase()}</div><span><strong>{selected.seller.display_name}</strong><small>{selected.seller.completed_deals} COD selesai · {selected.seller.no_shows} no-show</small></span></div><div className="safety"><Icon name="shield"/><span><strong>Kontak tetap privat sebelum deal</strong><small>Bayar saat bertemu setelah barang diperiksa.</small></span></div>{selected.seller_id!==user.id&&(selected.negotiable?<div className="offer-box"><label>Nominal tawaran<div className="currency-input"><span>Rp</span><input value={offerAmount?formatNumber(offerAmount):""} onChange={e=>setOfferAmount(e.target.value.replace(/\D/g,"").slice(0,14))} inputMode="numeric" placeholder="Contoh: 10.000"/></div></label><button className="primary" disabled={submitting||!offerAmount} onClick={submitOffer}>Kirim tawaran</button><small>Maksimal tiga tawaran untuk listing ini.</small></div>:<div className="offer-box"><button className="primary" disabled={submitting} onClick={()=>buyAtAskingPrice(selected)}>Ambil di harga {rupiah(selected.price)}</button><small>Penjual menetapkan harga pas untuk barang ini.</small></div>)}</div></section></div>}
     <nav className="bottom"><button className={tab==="home"?"active":""} onClick={()=>setTab("home")}><Icon name="search"/><span>Beranda</span></button><button className={tab==="sell"?"active":""} onClick={()=>setTab("sell")}><Icon name="plus"/><span>Jual</span></button><button className={tab==="activity"?"active":""} onClick={()=>setTab("activity")}><Icon name="bell"/><span>Aktivitas</span></button><button className={tab==="profile"?"active":""} onClick={()=>setTab("profile")}><Icon name="user"/><span>Profil</span></button></nav>
   </main>
 }
 
-function DealRoom({deal,userId,busy,onPropose,onAccept,onConfirm}:{deal:Deal;userId:string;busy:boolean;onPropose:(e:FormEvent<HTMLFormElement>,id:string)=>void;onAccept:(id:string)=>void;onConfirm:(id:string)=>void}){
+function DealRoom({deal,userId,busy,contact,onPropose,onAccept,onConfirm,onCancel}:{deal:Deal;userId:string;busy:boolean;contact?:Contact;onPropose:(e:FormEvent<HTMLFormElement>,id:string)=>void;onAccept:(id:string)=>void;onConfirm:(id:string)=>void;onCancel:(id:string)=>void}){
   const schedule=deal.cod_schedules?.[0]; const other=deal.buyer_id===userId?deal.seller:deal.buyer; const confirmed=deal.deal_confirmations?.some(c=>c.user_id===userId);
-  return <article className="deal"><div className="deal-top"><div><small>{deal.status.replaceAll("_"," ").toUpperCase()}</small><h3>{deal.listing?.title||"Barang dalam transaksi"}</h3><p>COD dengan {other.display_name}</p></div><strong>{rupiah(deal.final_price)}</strong></div>{schedule?<div className="schedule"><p><strong>{dateTime(schedule.scheduled_at)}</strong><span>{schedule.location_name}</span><small>{schedule.location_address}</small></p>{schedule.status==="proposed"&&schedule.proposed_by!==userId&&<button className="primary" disabled={busy} onClick={()=>onAccept(deal.id)}>Setujui jadwal</button>}{schedule.status==="proposed"&&schedule.proposed_by===userId&&<em>Menunggu persetujuan pihak lain</em>}</div>:<form className="schedule-form" onSubmit={e=>onPropose(e,deal.id)}><h4>Usulkan jadwal COD</h4><div className="date-time-fields"><label>Tanggal WITA<input name="scheduled_date" inputMode="numeric" placeholder="DDMMYYYY" pattern="\d{8}" maxLength={8} onInput={event=>event.currentTarget.value=event.currentTarget.value.replace(/\D/g,"").slice(0,8)} required/><small>Contoh: 08092026</small></label><label>Waktu<input name="scheduled_time" inputMode="numeric" placeholder="HHMM" pattern="\d{4}" maxLength={4} onInput={event=>event.currentTarget.value=event.currentTarget.value.replace(/\D/g,"").slice(0,4)} required/><small>Contoh: 1630</small></label></div><input name="location_name" placeholder="Nama tempat umum" required/><input name="location_address" placeholder="Alamat titik temu" required/><textarea name="notes" placeholder="Catatan pertemuan (opsional)"/><button className="primary" disabled={busy}>Kirim usulan</button></form>}{deal.status==="scheduled"&&<button className="confirm" disabled={busy||confirmed} onClick={()=>onConfirm(deal.id)}>{confirmed?"Konfirmasi tersimpan":deal.buyer_id===userId?"Barang sudah diterima":"Barang sudah diserahkan"}</button>}{deal.status==="completed"&&<div className="completed"><Icon name="check"/>COD selesai oleh kedua pihak</div>}</article>
+  const open=deal.status!=="completed"&&deal.status!=="cancelled";
+  const awaitingSchedule=!schedule||schedule.status==="cancelled";
+  return <article className="deal"><div className="deal-top"><div><small>{deal.status.replaceAll("_"," ").toUpperCase()}</small><h3>{deal.listing?.title||"Barang dalam transaksi"}</h3><p>COD dengan {other.display_name}</p></div><strong>{rupiah(deal.final_price)}</strong></div>
+    {contact?.phone&&open&&<div className="safety"><Icon name="shield"/><span><strong>Kontak {contact.display_name}</strong><small><a href={`tel:${contact.phone}`}>{contact.phone}</a></small></span></div>}
+    {awaitingSchedule?<form className="schedule-form" onSubmit={e=>onPropose(e,deal.id)}><h4>Usulkan jadwal COD</h4><div className="date-time-fields"><label>Tanggal WITA<input name="scheduled_date" inputMode="numeric" placeholder="DDMMYYYY" pattern="\d{8}" maxLength={8} onInput={event=>event.currentTarget.value=event.currentTarget.value.replace(/\D/g,"").slice(0,8)} required/><small>Contoh: 08092026</small></label><label>Waktu<input name="scheduled_time" inputMode="numeric" placeholder="HHMM" pattern="\d{4}" maxLength={4} onInput={event=>event.currentTarget.value=event.currentTarget.value.replace(/\D/g,"").slice(0,4)} required/><small>Contoh: 1630</small></label></div><input name="location_name" placeholder="Nama tempat umum" minLength={3} maxLength={160} required/><input name="location_address" placeholder="Alamat titik temu" minLength={3} maxLength={300} required/><textarea name="notes" placeholder="Catatan pertemuan (opsional)" maxLength={500}/><button className="primary" disabled={busy}>Kirim usulan</button></form>
+    :<div className="schedule"><p><strong>{dateTime(schedule.scheduled_at)}</strong><span>{schedule.location_name}</span><small>{schedule.location_address}</small></p>{schedule.status==="proposed"&&schedule.proposed_by!==userId&&<button className="primary" disabled={busy} onClick={()=>onAccept(deal.id)}>Setujui jadwal</button>}{schedule.status==="proposed"&&schedule.proposed_by===userId&&<em>Menunggu persetujuan pihak lain</em>}</div>}
+    {(deal.status==="scheduled"||deal.status==="meeting")&&<button className="confirm" disabled={busy||confirmed} onClick={()=>onConfirm(deal.id)}>{confirmed?"Konfirmasi tersimpan":deal.buyer_id===userId?"Barang sudah diterima":"Barang sudah diserahkan"}</button>}
+    {deal.status==="completed"&&<div className="completed"><Icon name="check"/>COD selesai oleh kedua pihak</div>}
+    {deal.status==="cancelled"&&<div className="mini-empty">Transaksi dibatalkan.</div>}
+    {open&&<button className="text-button" disabled={busy} onClick={()=>onCancel(deal.id)}>Batalkan transaksi</button>}
+  </article>
 }
