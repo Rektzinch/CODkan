@@ -4,7 +4,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 
-type Profile = { id:string; display_name:string; phone:string|null; area:string; avatar_url:string|null; completed_deals:number; no_shows:number; created_at:string };
+type Profile = { id:string; display_name:string; phone:string|null; area:string; avatar_url:string|null; completed_deals:number; no_shows:number; created_at:string; onboarded:boolean };
 type PublicProfile = Omit<Profile,"phone">;
 type Media = { id:string; public_url:string; sort_order:number };
 type Listing = { id:string; seller_id:string; title:string; description:string; price:number; category:string; condition:string; negotiable:boolean; area:string; visibility_radius_km:number; status:string; created_at:string; listing_media:Media[]; seller:PublicProfile };
@@ -46,6 +46,12 @@ const errorMessages:Record<string,string> = {
   schedule_in_past:"Jadwal COD harus di waktu yang akan datang.",
   schedule_not_actionable:"Jadwal ini sudah tidak bisa disetujui.",
   other_party_must_accept:"Jadwal usulanmu menunggu persetujuan pihak lain.",
+  profile_incomplete:"Lengkapi profil dan area domisilimu dulu.",
+  deal_already_exists:"Barang ini sudah masuk Deal Room dengan pembeli lain.",
+  invalid_counter:"Nominal tawaran balasan tidak valid.",
+  invalid_amount:"Nominal tawaran tidak valid.",
+  invalid_action:"Aksi ini tidak berlaku untuk tawaran tersebut.",
+  "violates foreign key constraint":"Profil salah satu pihak belum lengkap. Minta pihak lain melengkapi profilnya.",
 };
 function friendlyError(value:string){
   const key=value.toLowerCase().trim();
@@ -117,7 +123,7 @@ export default function Home(){
     if(!currentUser){setProfile(null);setListings([]);setOffers([]);setDeals([]);setContacts([]);setLoading(false);return}
     const {data,error:profileError}=await supabase.rpc("my_profile").maybeSingle();
     if(profileError)setError(friendlyError(profileError.message));
-    else if(data){await loadData(currentUser,data as Profile)}
+    else if(data&&(data as Profile).onboarded){await loadData(currentUser,data as Profile)}
     else setProfile(null);
     setLoading(false);
   },[loadData]);
@@ -151,7 +157,7 @@ export default function Home(){
   }
   async function signOut(){setSubmitting(true);await supabase.auth.signOut();setSubmitting(false);setTab("home");await bootstrap()}
 
-  async function saveProfile(e:FormEvent<HTMLFormElement>){e.preventDefault();if(!user)return;clear();setSubmitting(true);const form=new FormData(e.currentTarget);const phone=String(form.get("phone")).trim();const payload={id:user.id,display_name:String(form.get("name")).trim(),phone:phone||null,area:String(form.get("area")).trim()};const {error:err}=await supabase.from("profiles").insert(payload);if(err){setSubmitting(false);fail(err.message);return}const {data,error:readError}=await supabase.rpc("my_profile").maybeSingle();setSubmitting(false);if(readError||!data){fail(readError?.message||"Profil tidak dapat dibaca.");return}await loadData(user,data as Profile);}
+  async function saveProfile(e:FormEvent<HTMLFormElement>){e.preventDefault();if(!user)return;clear();setSubmitting(true);const form=new FormData(e.currentTarget);const phone=String(form.get("phone")).trim();const payload={display_name:String(form.get("name")).trim(),phone:phone||null,area:String(form.get("area")).trim()};const {error:err}=await supabase.from("profiles").update(payload).eq("id",user.id);if(err){setSubmitting(false);fail(err.message);return}const {data,error:readError}=await supabase.rpc("my_profile").maybeSingle();setSubmitting(false);if(readError||!data){fail(readError?.message||"Profil tidak dapat dibaca.");return}await loadData(user,data as Profile);}
   async function createListing(e:FormEvent<HTMLFormElement>){e.preventDefault();if(!user||!profile)return;clear();const form=new FormData(e.currentTarget);const file=form.get("photo") as File;
     if(!file||file.size===0){fail("Pilih foto barang terlebih dahulu.");return}
     if(file.size>MAX_PHOTO_BYTES){fail("Ukuran foto melebihi 5 MB.");return}
