@@ -1,8 +1,12 @@
 import type { Metadata, Viewport } from "next";
-import { Geist } from "next/font/google";
+import { Poppins } from "next/font/google";
 import "./globals.css";
 
-const geist = Geist({ variable: "--font-geist", subsets: ["latin"] });
+const poppins = Poppins({
+  variable: "--font-poppins",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+});
 
 export const metadata: Metadata = {
   title: "CODkan — Ketemu. Tawar. Deal.",
@@ -11,8 +15,8 @@ export const metadata: Metadata = {
   other: { "codex-preview": "development" },
 };
 
-export const viewport: Viewport = { themeColor: "#176B45", width: "device-width", initialScale: 1 };
+export const viewport: Viewport = { themeColor: "#FF5A4A", width: "device-width", initialScale: 1 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="id"><body className={geist.variable}>{children}</body></html>;
+  return <html lang="id"><body className={poppins.variable}>{children}</body></html>;
 }
