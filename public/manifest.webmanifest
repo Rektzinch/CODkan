@@ -4,10 +4,10 @@
   "description": "Marketplace lokal untuk menemukan barang, menawar, dan COD dengan aman.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f0f3f0",
-  "theme_color": "#176b45",
+  "background_color": "#fffdfb",
+  "theme_color": "#ff5a4a",
   "lang": "id",
   "icons": [
-    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+    { "src": "/brand/codkan-mark.png", "sizes": "455x456", "type": "image/png", "purpose": "any maskable" }
   ]
 }
