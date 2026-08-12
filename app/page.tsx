@@ -118,19 +118,12 @@ function AuthScreen({busy,error,notice,onSubmit,onClear}:{busy:boolean;error:str
           <label className="input-with-icon"><Icon name="user" size={18}/><input name="name" placeholder="Nama lengkap" autoComplete="name" minLength={2} maxLength={60} required/></label>
           <label className="input-with-icon"><Icon name="phone" size={18}/><input name="phone" type="tel" placeholder="Nomor HP (opsional)" autoComplete="tel" maxLength={24}/></label>
         </div>}
-        <label className="input-with-icon"><Icon name="mail" size={18}/><input name="email" type="email" placeholder="Email atau nomor HP" autoComplete="email" required/></label>
+        <label className="input-with-icon"><Icon name="mail" size={18}/><input name="email" type="email" placeholder="Email" autoComplete="email" required/></label>
         <label className="input-with-icon"><Icon name="lock" size={18}/><span className="password-field"><input name="password" type={showPassword?"text":"password"} placeholder="Kata sandi" autoComplete={mode==="signin"?"current-password":"new-password"} minLength={8} required/><button type="button" aria-label={showPassword?"Sembunyikan kata sandi":"Tampilkan kata sandi"} onClick={()=>setShowPassword(value=>!value)}><Icon name={showPassword?"eyeoff":"eye"} size={18}/></button></span></label>
         {mode==="signup"&&<><label className="input-with-icon"><Icon name="lock" size={18}/><span className="password-field"><input name="confirmation" type={showConfirmation?"text":"password"} placeholder="Ulangi kata sandi" autoComplete="new-password" minLength={8} required/><button type="button" aria-label={showConfirmation?"Sembunyikan konfirmasi kata sandi":"Tampilkan konfirmasi kata sandi"} onClick={()=>setShowConfirmation(value=>!value)}><Icon name={showConfirmation?"eyeoff":"eye"} size={18}/></button></span></label><small className="auth-password-note">Minimal 8 karakter.</small><label className="auth-terms"><input name="terms" type="checkbox" required/><span>Saya menyetujui ketentuan penggunaan CODkan.</span></label></>}
       </div>
-      {mode==="signin"&&<button type="button" className="forgot-password-link">Lupa kata sandi?</button>}
       {(formError||error)&&<div className="alert error" role="alert">{formError||error}</div>}{notice&&<div className="alert success" role="status">{notice}</div>}
       <button className="primary auth-submit" disabled={busy}>{busy?"Memproses…":mode==="signin"?"Masuk":"Buat Akun"}</button>
-      <div className="auth-divider"><span>atau</span></div>
-      <div className="auth-socials">
-        <button type="button" className="social-button"><Icon name="google" size={18}/><span>Masuk dengan Google</span></button>
-        <button type="button" className="social-button"><Icon name="apple" size={18}/><span>Masuk dengan Apple</span></button>
-        <button type="button" className="social-button"><Icon name="facebook" size={18}/><span>Masuk dengan Facebook</span></button>
-      </div>
       <button type="button" className="text-button auth-mode-toggle" onClick={toggleMode}>
         {mode==="signin"?<>Belum punya akun? <strong>Daftar sekarang</strong></>:<>Sudah punya akun? <strong>Masuk sekarang</strong></>}
       </button>
