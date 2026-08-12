@@ -102,7 +102,7 @@ function AuthScreen({busy,error,notice,onSubmit,onClear}:{busy:boolean;error:str
   return <main className={`auth-page auth-page--${mode}`}>
     <aside className="auth-brand">
       <img className="auth-wordmark" src="/brand/codkan-lockup.png" alt="CODkan — Ketemu, Tawar, Deal, COD"/>
-      <img className="auth-mascot" src="/brand/si-cod-paket.png" alt="Si COD membawa paket"/>
+      {mode==="signin"&&<img className="auth-mascot" src="/brand/si-cod-paket.png" alt="Si COD membawa paket"/>}
       <h1>{mode==="signin"?<>Ketemu.<br/>Tawar.<br/><em>Deal.</em></>:<>Daftar.<br/>Jual.<br/><em>COD.</em></>}</h1>
       <p>{mode==="signin"?"Masuk untuk menawar dengan aman dan melanjutkan Deal Room-mu.":"Buat akun untuk menjual, menawar, dan bertemu di tempat umum."}</p>
       <div><Icon name="shield" size={22}/><span><strong>Kontak tetap privat</strong><small>Nomor telepon hanya terbuka setelah deal disepakati.</small></span></div>
@@ -128,7 +128,7 @@ function AuthScreen({busy,error,notice,onSubmit,onClear}:{busy:boolean;error:str
         {mode==="signin"?<>Belum punya akun? <strong>Daftar sekarang</strong></>:<>Sudah punya akun? <strong>Masuk sekarang</strong></>}
       </button>
     </form>
-    <img className="auth-scene-mobile" src="/brand/cod-delivery-scene.png" alt="" aria-hidden="true"/>
+    {mode==="signin"&&<img className="auth-scene-mobile" src="/brand/cod-delivery-scene.png" alt="" aria-hidden="true"/>}
   </main>;
 }
 
