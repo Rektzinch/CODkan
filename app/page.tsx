@@ -1,6 +1,7 @@
 "use client";
 
 import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 
@@ -128,6 +129,7 @@ function AuthScreen({busy,error,notice,onSubmit,onClear}:{busy:boolean;error:str
         {mode==="signin"?<>Belum punya akun? <strong>Daftar sekarang</strong></>:<>Sudah punya akun? <strong>Masuk sekarang</strong></>}
       </button>
     </form>
+    {mode==="signin"&&<div className="auth-scene-mobile" aria-hidden="true"><Image src="/brand/cod-login-scene.jpg" alt="" fill priority sizes="(max-width: 680px) 100vw, 1px"/></div>}
   </main>;
 }
 
