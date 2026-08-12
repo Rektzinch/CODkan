@@ -127,3 +127,12 @@ header .brand.plain img{display:block;width:157px;height:auto;max-height:51px;ob
   .auth-card-header h1{font-size:23px}
   .auth-card label.input-with-icon{min-height:54px}
 }
+
+/* Mobile auth final flow: illustration follows the form instead of floating at the viewport edge. */
+@media(max-width:680px){
+  .auth-page{display:flex;flex-direction:column;min-height:100dvh}
+  .auth-card{min-height:0;padding-bottom:0}
+  .auth-page--signup .auth-card{padding-bottom:0}
+  .auth-scene-mobile{position:relative;right:auto;bottom:auto;left:auto;width:100%;height:170px;margin:16px 0 0;object-fit:cover;object-position:center bottom;flex:0 0 170px}
+  .auth-page--signup .auth-scene-mobile{height:150px;flex-basis:150px}
+}
