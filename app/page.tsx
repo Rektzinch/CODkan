@@ -81,7 +81,7 @@ const notificationLabels:Record<string,string> = {
 };
 
 function Icon({name,size=20}:{name:string;size?:number}) {
-  const paths:Record<string,React.ReactNode>={home:<><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10M9 20v-6h6v6"/></>,search:<><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></>,pin:<><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></>,plus:<><circle cx="12" cy="12" r="9"/><path d="M8 12h8M12 8v8"/></>,bell:<><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></>,user:<><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></>,close:<><path d="m6 6 12 12M18 6 6 18"/></>,shield:<><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></>,handshake:<><path d="m8 13-2 2a2.4 2.4 0 0 1-3.4-3.4l4.1-4.1a3 3 0 0 1 3.5-.55l1.1.55 1.8-1.8a3 3 0 0 1 4.25 0l4.05 4.05a2.4 2.4 0 0 1-3.4 3.4l-2-2"/><path d="m8 13 4.2 4.2a2.15 2.15 0 0 0 3.04-3.04l-.15-.15a2.15 2.15 0 0 0 3.04-3.04l-2.9-2.9-2.3 2.3a2.2 2.2 0 0 1-3.1 0L8.2 8.75"/></>,box:<><path d="m3 7 9-4 9 4-9 4-9-4Z"/><path d="M3 7v10l9 4 9-4V7M12 11v10"/></>,check:<path d="m5 12 4 4L19 6"/>,logout:<><path d="M10 17l5-5-5-5M15 12H3"/><path d="M14 3h7v18h-7"/></>,down:<path d="m7 10 5 5 5-5"/>,upload:<><path d="M12 16V4m0 0L7 9m5-5 5 5"/><path d="M5 15v5h14v-5"/></>};
+  const paths:Record<string,React.ReactNode>={home:<><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10M9 20v-6h6v6"/></>,search:<><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></>,pin:<><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></>,plus:<><circle cx="12" cy="12" r="9"/><path d="M8 12h8M12 8v8"/></>,bell:<><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></>,user:<><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></>,mail:<><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></>,phone:<><rect x="6" y="3" width="12" height="18" rx="2"/><path d="M10 18h4"/></>,lock:<><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></>,eye:<><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.5"/></>,eyeoff:<><path d="m3 3 18 18"/><path d="M10.6 6.2A10.5 10.5 0 0 1 12 6c6 0 9.5 6 9.5 6a17.4 17.4 0 0 1-3 3.7M6.3 6.3A17.6 17.6 0 0 0 2.5 12S6 18 12 18c1.4 0 2.6-.3 3.7-.8"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></>,close:<><path d="m6 6 12 12M18 6 6 18"/></>,shield:<><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></>,handshake:<><path d="m8 13-2 2a2.4 2.4 0 0 1-3.4-3.4l4.1-4.1a3 3 0 0 1 3.5-.55l1.1.55 1.8-1.8a3 3 0 0 1 4.25 0l4.05 4.05a2.4 2.4 0 0 1-3.4 3.4l-2-2"/><path d="m8 13 4.2 4.2a2.15 2.15 0 0 0 3.04-3.04l-.15-.15a2.15 2.15 0 0 0 3.04-3.04l-2.9-2.9-2.3 2.3a2.2 2.2 0 0 1-3.1 0L8.2 8.75"/></>,box:<><path d="m3 7 9-4 9 4-9 4-9-4Z"/><path d="M3 7v10l9 4 9-4V7M12 11v10"/></>,check:<path d="m5 12 4 4L19 6"/>,logout:<><path d="M10 17l5-5-5-5M15 12H3"/><path d="M14 3h7v18h-7"/></>,down:<path d="m7 10 5 5 5-5"/>,upload:<><path d="M12 16V4m0 0L7 9m5-5 5 5"/><path d="M5 15v5h14v-5"/></>};
   return <svg aria-hidden="true" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{paths[name]}</svg>;
 }
 
@@ -96,21 +96,18 @@ function ToggleField({name,label}:{name:string;label:string}){const [enabled,set
 
 function CurrencyInput({name,placeholder="Contoh: 10.000"}:{name:string;placeholder?:string}){const [digits,setDigits]=useState("");return <div className="currency-input"><span>Rp</span><input name={name} value={digits?formatNumber(digits):""} onChange={event=>setDigits(event.target.value.replace(/\D/g,"").slice(0,14))} inputMode="numeric" placeholder={placeholder} required/></div>}
 
-function AuthScreen({busy,error,notice,onSubmit,onClear}:{busy:boolean;error:string;notice:string;onSubmit:(mode:"signin"|"signup",email:string,password:string)=>void;onClear:()=>void}){
-  const [mode,setMode]=useState<"signin"|"signup">("signin");
-  return <main className="auth-page">
-    <aside className="auth-brand"><img className="auth-wordmark" src="/brand/codkan-lockup.png" alt="CODkan — Ketemu, Tawar, Deal, COD"/><img className="auth-mascot" src="/brand/si-cod-paket.png" alt="Si COD membawa paket"/><h1>Ketemu.<br/>Tawar.<br/><em>Deal.</em></h1><p>Marketplace lokal untuk menemukan barang di sekitarmu, menawar dengan wajar, dan bertransaksi COD di tempat umum.</p><div><Icon name="shield" size={22}/><span><strong>Kontak tetap privat</strong><small>Nomor telepon hanya terbuka setelah deal disepakati.</small></span></div></aside>
-    <form className="auth-card" onSubmit={event=>{event.preventDefault();const form=new FormData(event.currentTarget);onSubmit(mode,String(form.get("email")).trim(),String(form.get("password")));}}>
-      <p>{mode==="signin"?"MASUK KE AKUN":"BUAT AKUN BARU"}</p>
-      <h2>{mode==="signin"?"Selamat datang kembali":"Mulai jual beli lokal"}</h2>
-      <label>Email<input name="email" type="email" autoComplete="email" required/></label>
-      <label>Kata sandi<input name="password" type="password" autoComplete={mode==="signin"?"current-password":"new-password"} minLength={8} required/>{mode==="signup"&&<small style={{fontWeight:400,color:"var(--muted)"}}>Minimal 8 karakter.</small>}</label>
-      {error&&<div className="alert error">{error}</div>}
-      {notice&&<div className="alert success">{notice}</div>}
-      <button className="primary" disabled={busy}>{busy?"Memproses…":mode==="signin"?"Masuk":"Daftar"}</button>
-      <button type="button" className="text-button" onClick={()=>{setMode(mode==="signin"?"signup":"signin");onClear()}}>{mode==="signin"?"Belum punya akun? Daftar":"Sudah punya akun? Masuk"}</button>
-    </form>
-  </main>;
+function AuthScreen({busy,error,notice,onSubmit,onClear}:{busy:boolean;error:string;notice:string;onSubmit:(mode:"signin"|"signup",email:string,password:string,name?:string,phone?:string)=>void;onClear:()=>void}){
+  const [mode,setMode]=useState<"signin"|"signup">("signin"); const [showPassword,setShowPassword]=useState(false); const [showConfirmation,setShowConfirmation]=useState(false); const [formError,setFormError]=useState("");
+  const toggleMode=()=>{setMode(current=>current==="signin"?"signup":"signin");setFormError("");onClear()};
+  return <main className="auth-page"><aside className="auth-brand"><img className="auth-wordmark" src="/brand/codkan-lockup.png" alt="CODkan — Ketemu, Tawar, Deal, COD"/><img className="auth-mascot" src="/brand/si-cod-paket.png" alt="Si COD membawa paket"/><h1>{mode==="signin"?<>Ketemu.<br/>Tawar.<br/><em>Deal.</em></>:<>Daftar.<br/>Jual.<br/><em>COD.</em></>}</h1><p>{mode==="signin"?"Masuk untuk menawar dengan aman dan melanjutkan Deal Room-mu.":"Buat akun untuk menjual, menawar, dan bertemu di tempat umum."}</p><div><Icon name="shield" size={22}/><span><strong>Kontak tetap privat</strong><small>Nomor telepon hanya terbuka setelah deal disepakati.</small></span></div></aside><form className="auth-card auth-card--full" onSubmit={event=>{event.preventDefault();const form=new FormData(event.currentTarget);const email=String(form.get("email")).trim();const password=String(form.get("password"));const name=String(form.get("name")).trim();const phone=String(form.get("phone")).trim();if(mode==="signup"){if(password!==String(form.get("confirmation"))){setFormError("Konfirmasi kata sandi belum sama.");return}if(!form.get("terms")){setFormError("Setujui ketentuan penggunaan untuk melanjutkan.");return}}setFormError("");onSubmit(mode,email,password,name,phone);}}>
+    <p>{mode==="signin"?"MASUK KE AKUN":"BUAT AKUN BARU"}</p><h2>{mode==="signin"?"Selamat datang kembali":"Daftar cepat dan aman"}</h2>
+    {mode==="signup"&&<label>Nama lengkap<input name="name" placeholder="Nama lengkap" autoComplete="name" minLength={2} maxLength={60} required/></label>}
+    <label>Email<input name="email" type="email" placeholder="Email" autoComplete="email" required/></label>
+    {mode==="signup"&&<label>Nomor HP <small>(opsional)</small><input name="phone" type="tel" placeholder="Nomor HP" autoComplete="tel" maxLength={24}/></label>}
+    <label>Kata sandi<span className="password-field"><input name="password" type={showPassword?"text":"password"} placeholder="Kata sandi" autoComplete={mode==="signin"?"current-password":"new-password"} minLength={8} required/><button type="button" aria-label={showPassword?"Sembunyikan kata sandi":"Tampilkan kata sandi"} onClick={()=>setShowPassword(value=>!value)}><Icon name={showPassword?"eyeoff":"eye"} size={18}/></button></span></label>
+    {mode==="signup"&&<><label>Konfirmasi kata sandi<span className="password-field"><input name="confirmation" type={showConfirmation?"text":"password"} placeholder="Ulangi kata sandi" autoComplete="new-password" minLength={8} required/><button type="button" aria-label={showConfirmation?"Sembunyikan konfirmasi kata sandi":"Tampilkan konfirmasi kata sandi"} onClick={()=>setShowConfirmation(value=>!value)}><Icon name={showConfirmation?"eyeoff":"eye"} size={18}/></button></span></label><small className="auth-password-note">Minimal 8 karakter. Gunakan kombinasi yang sulit ditebak.</small><label className="auth-terms"><input name="terms" type="checkbox" required/><span>Saya menyetujui ketentuan penggunaan CODkan.</span></label></>}
+    {(formError||error)&&<div className="alert error" role="alert">{formError||error}</div>}{notice&&<div className="alert success" role="status">{notice}</div>}<button className="primary" disabled={busy}>{busy?"Memproses…":mode==="signin"?"Masuk ke CODkan":"Buat akun"}</button><button type="button" className="text-button" onClick={toggleMode}>{mode==="signin"?"Belum punya akun? Daftar sekarang":"Sudah punya akun? Masuk sekarang"}</button>
+  </form></main>;
 }
 
 export default function Home(){
@@ -175,11 +172,11 @@ export default function Home(){
   const clear=useCallback(()=>{setError("");setMessage("")},[]);
   const fail=(value:string)=>setError(friendlyError(value));
 
-  async function authenticate(mode:"signin"|"signup",email:string,password:string){
+  async function authenticate(mode:"signin"|"signup",email:string,password:string,name="",phone=""){
     clear();setSubmitting(true);
     const result=mode==="signin"
       ? await supabase.auth.signInWithPassword({email,password})
-      : await supabase.auth.signUp({email,password});
+      : await supabase.auth.signUp({email,password,options:{data:{display_name:name,phone:phone||null}}});
     setSubmitting(false);
     if(result.error){fail(result.error.message);return}
     if(mode==="signup"&&!result.data.session){setMessage("Akun dibuat. Cek email untuk konfirmasi, lalu masuk.");return}
