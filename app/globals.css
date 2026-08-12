@@ -34,8 +34,7 @@ header{height:74px;background:#fffdfbf2;border-bottom:1px solid var(--line);back
 /* Mobile top bar: keep the complete logo lockup visible instead of cropping it. */
 header .brand.plain{display:block;flex:0 0 auto;line-height:0;overflow:visible}
 header .brand.plain img{display:block;width:157px;height:auto;max-height:51px;object-fit:contain;object-position:left center}
-.app-splash{min-height:100dvh;display:grid;place-content:center;justify-items:center;gap:13px;overflow:hidden;background:var(--paper);color:var(--muted);padding:28px;isolation:isolate}
-.app-splash:before{content:"";position:absolute;z-index:-1;width:min(96vw,680px);aspect-ratio:1;border-radius:50%;background:var(--coral-soft);transform:translateY(21%)}
+.app-splash{min-height:100dvh;display:grid;place-content:center;justify-items:center;gap:13px;overflow:hidden;background:var(--paper) url("/brand/loading-pattern.png") center/420px auto repeat;color:var(--muted);padding:28px}
 .app-splash__brand{width:min(225px,68vw)}
 .app-splash__brand img{display:block;width:100%;height:auto;object-fit:contain}
 .app-splash__mascot{width:min(230px,62vw);height:auto;object-fit:contain;filter:drop-shadow(0 17px 15px #0d13211c);animation:codkan-bob 1.45s ease-in-out infinite}
