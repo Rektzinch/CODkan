@@ -114,7 +114,12 @@ function AuthScreen({busy,error,notice,onSubmit,onClear}:{busy:boolean;error:str
         <h1>Selamat datang!</h1>
         <p>{mode==="signin"?"Masuk untuk mulai tawar dan deal":"Daftar untuk mulai tawar dan deal"}</p>
       </div>
-      <div className="auth-inputs">
+      {notice ? <div className="auth-success-state">
+        <div className="auth-success-icon"><Icon name="mail" size={42}/></div>
+        <h2>Cek Email Kamu</h2>
+        <p>{notice}</p>
+        <button type="button" className="primary" onClick={onClear}>Kembali ke Masuk</button>
+      </div> : <><div className="auth-inputs">
         {mode==="signup"&&<div className="auth-signup-fields">
           <label className="input-with-icon"><Icon name="user" size={18}/><input name="name" placeholder="Nama lengkap" autoComplete="name" minLength={2} maxLength={60} required/></label>
           <label className="input-with-icon"><Icon name="phone" size={18}/><input name="phone" type="tel" placeholder="Nomor HP (opsional)" autoComplete="tel" maxLength={24}/></label>
@@ -123,11 +128,11 @@ function AuthScreen({busy,error,notice,onSubmit,onClear}:{busy:boolean;error:str
         <label className="input-with-icon"><Icon name="lock" size={18}/><span className="password-field"><input name="password" type={showPassword?"text":"password"} placeholder="Kata sandi" autoComplete={mode==="signin"?"current-password":"new-password"} minLength={8} required/><button type="button" aria-label={showPassword?"Sembunyikan kata sandi":"Tampilkan kata sandi"} onClick={()=>setShowPassword(value=>!value)}><Icon name={showPassword?"eyeoff":"eye"} size={18}/></button></span></label>
         {mode==="signup"&&<><label className="input-with-icon"><Icon name="lock" size={18}/><span className="password-field"><input name="confirmation" type={showConfirmation?"text":"password"} placeholder="Ulangi kata sandi" autoComplete="new-password" minLength={8} required/><button type="button" aria-label={showConfirmation?"Sembunyikan konfirmasi kata sandi":"Tampilkan konfirmasi kata sandi"} onClick={()=>setShowConfirmation(value=>!value)}><Icon name={showConfirmation?"eyeoff":"eye"} size={18}/></button></span></label><small className="auth-password-note">Minimal 8 karakter.</small><label className="auth-terms"><input name="terms" type="checkbox" required/><span>Saya menyetujui ketentuan penggunaan CODkan.</span></label></>}
       </div>
-      {(formError||error)&&<div className="alert error" role="alert">{formError||error}</div>}{notice&&<div className="alert success" role="status">{notice}</div>}
+      {(formError||error)&&<div className="alert error" role="alert">{formError||error}</div>}
       <button className="primary auth-submit" disabled={busy}>{busy?"Memproses…":mode==="signin"?"Masuk":"Buat Akun"}</button>
       <button type="button" className="text-button auth-mode-toggle" onClick={toggleMode}>
         {mode==="signin"?<>Belum punya akun? <strong>Daftar sekarang</strong></>:<>Sudah punya akun? <strong>Masuk sekarang</strong></>}
-      </button>
+      </button></>}
     </form>
     {mode==="signin"&&<div className="auth-scene-mobile" aria-hidden="true"><Image src="/brand/cod-login-scene.jpg" alt="" fill priority sizes="(max-width: 680px) 100vw, 1px"/></div>}
   </main>;
@@ -203,8 +208,18 @@ export default function Home(){
       ? await supabase.auth.signInWithPassword({email,password})
       : await supabase.auth.signUp({email,password,options:{data:{display_name:name,phone:phone||null}}});
     setSubmitting(false);
-    if(result.error){fail(result.error.message);return}
-    if(mode==="signup"&&!result.data.session){setMessage("Akun dibuat. Cek email untuk konfirmasi, lalu masuk.");return}
+    if(result.error){
+      if(mode==="signup" && result.error.message.includes("JWT issued at future")){
+        setMessage("Pendaftaran berhasil. Silakan cek email kamu untuk konfirmasi.");
+        return;
+      }
+      fail(result.error.message);
+      return;
+    }
+    if(mode==="signup"&&!result.data.session){
+      setMessage("Pendaftaran berhasil! Cek kotak masuk email kamu untuk konfirmasi akun CODkan.");
+      return;
+    }
     await bootstrap();
   }
   async function signOut(){setSubmitting(true);await supabase.auth.signOut();setSubmitting(false);setTab("home");await bootstrap()}

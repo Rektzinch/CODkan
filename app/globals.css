@@ -187,3 +187,11 @@ header .brand.plain img{display:block;width:157px;height:auto;max-height:51px;ob
   .auth-page--signin{grid-template-rows:auto minmax(180px,1fr)}
   .auth-scene-mobile{min-height:180px}
 }
+
+/* Auth Success State: Clear feedback after signup */
+.auth-success-state{display:flex;flex-direction:column;align-items:center;text-align:center;padding:20px 0;gap:16px;animation:authFadeIn .4s ease-out}
+.auth-success-icon{width:84px;height:84px;display:grid;place-items:center;background:var(--coral-soft);color:var(--coral);border-radius:50%;margin-bottom:8px}
+.auth-success-state h2{font-size:22px;color:var(--navy);margin:0}
+.auth-success-state p{font-size:14px;color:var(--muted);line-height:1.6;margin:0;max-width:280px}
+.auth-success-state .primary{margin-top:12px;width:100%;max-width:240px}
+@keyframes authFadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
