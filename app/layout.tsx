@@ -1,11 +1,17 @@
 import type { Metadata, Viewport } from "next";
-import { Poppins } from "next/font/google";
+import { Bricolage_Grotesque, Geist } from "next/font/google";
+import "../tokens.css";
 import "./globals.css";
+import "./ui-system.css";
 
-const poppins = Poppins({
-  variable: "--font-poppins",
+const bricolage = Bricolage_Grotesque({
+  variable: "--font-bricolage",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
+});
+
+const geist = Geist({
+  variable: "--font-geist",
+  subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
@@ -18,5 +24,5 @@ export const metadata: Metadata = {
 export const viewport: Viewport = { themeColor: "#FF5A4A", width: "device-width", initialScale: 1 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="id"><body className={poppins.variable}>{children}</body></html>;
+  return <html lang="id" className={`${bricolage.variable} ${geist.variable}`}><body>{children}</body></html>;
 }
