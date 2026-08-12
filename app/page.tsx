@@ -128,7 +128,6 @@ function AuthScreen({busy,error,notice,onSubmit,onClear}:{busy:boolean;error:str
         {mode==="signin"?<>Belum punya akun? <strong>Daftar sekarang</strong></>:<>Sudah punya akun? <strong>Masuk sekarang</strong></>}
       </button>
     </form>
-    {mode==="signin"&&<img className="auth-scene-mobile" src="/brand/cod-delivery-scene.png" alt="" aria-hidden="true"/>}
   </main>;
 }
 
