@@ -108,11 +108,11 @@ function AuthScreen({busy,error,notice,onSubmit,onClear}:{busy:boolean;error:str
       <div><Icon name="shield" size={22}/><span><strong>Kontak tetap privat</strong><small>Nomor telepon hanya terbuka setelah deal disepakati.</small></span></div>
     </aside>
     <form className="auth-card auth-card--full" onSubmit={event=>{event.preventDefault();const form=new FormData(event.currentTarget);const email=String(form.get("email")).trim();const password=String(form.get("password"));const name=String(form.get("name")).trim();const phone=String(form.get("phone")).trim();if(mode==="signup"){if(password!==String(form.get("confirmation"))){setFormError("Konfirmasi kata sandi belum sama.");return}if(!form.get("terms")){setFormError("Setujui ketentuan penggunaan untuk melanjutkan.");return}}setFormError("");onSubmit(mode,email,password,name,phone);}}>
-      <header className="auth-card-header">
+      <div className="auth-card-header">
         <img src="/brand/codkan-logo.png" alt="CODkan Logo" className="auth-logo-mobile"/>
         <h1>Selamat datang!</h1>
         <p>{mode==="signin"?"Masuk untuk mulai tawar dan deal":"Daftar untuk mulai tawar dan deal"}</p>
-      </header>
+      </div>
       <div className="auth-inputs">
         {mode==="signup"&&<div className="auth-signup-fields">
           <label className="input-with-icon"><Icon name="user" size={18}/><input name="name" placeholder="Nama lengkap" autoComplete="name" minLength={2} maxLength={60} required/></label>
