@@ -1,9 +1,0 @@
-{
-  "date": "2026-08-13",
-  "framework": "Next.js 16 App Router with Vinext and Tailwind CSS v4",
-  "font_stack": ["Bricolage Grotesque", "Geist"],
-  "palette": "CODkan coral, navy, and warm paper custom properties",
-  "motion": "CSS transitions only; no motion library",
-  "spacing": "Mixed raw values without a shared named scale",
-  "source_files": ["app/layout.tsx", "app/page.tsx", "app/globals.css", "DESAIN-1.md"]
-}
